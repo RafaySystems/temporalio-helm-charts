@@ -19,8 +19,8 @@ additionalLabels: {}
 server:
   enabled: true
   image:
-    repository: temporalio/server
-    tag: 1.28.0
+    repository: registry.dev.rafay-edge.net/rafay/server
+    tag: 20250702-193652
     pullPolicy: IfNotPresent
   # Global default settings (can be overridden per service)
   replicaCount: 1
@@ -137,7 +137,7 @@ server:
       defaultStore: default
       additionalStores: {}
       default:
-        driver: "cassandra"
+        driver: "mongodb"
         cassandra:
           hosts: []
           # port: 9042
@@ -169,16 +169,16 @@ server:
           # tx_isolation: 'READ-COMMITTED'
         mongodb:
           # MongoDB connection URI (if provided, other connection parameters are ignored)
-          uri: ""
+          uri: "mongodb://aisrvdbuser:aisrvdbuser@rafay-mongodb-0.rafay-mongodb-svc.rafay-core.svc.cluster.local:27017/temporal?replicaSet=rafay-mongodb&ssl=false"
           # Individual connection parameters (used if uri is not provided)
-          host: ""
+          host: "rafay-mongodb-0.rafay-mongodb-svc.rafay-core.svc.cluster.local"
           port: 27017
           database: "temporal"
           collection: "temporal"
-          username: "temporal"
-          password: "temporal"
-          existingSecret: ""
-          secretName: ""
+          username: "aisrvdbuser"
+          password: "aisrvdbuser"
+          existingSecret: "rafay-mongodb-admin-aisrvdbuser"
+          secretName: "rafay-mongodb-admin-aisrvdbuser"
           maxConns: 20
           maxIdleConns: 20
           maxConnLifetime: "1h"
@@ -189,7 +189,7 @@ server:
           # sslKeyFile: ""
           # sslCaFile: ""
       visibility:
-        driver: "cassandra"
+        driver: "mongodb"
         cassandra:
           hosts: []
           # port: 9042
@@ -221,16 +221,16 @@ server:
           #   tx_isolation: 'READ-COMMITTED'
         mongodb:
           # MongoDB connection URI (if provided, other connection parameters are ignored)
-          uri: ""
+          uri: "mongodb://aisrvdbuser:aisrvdbuser@rafay-mongodb-0.rafay-mongodb-svc.rafay-core.svc.cluster.local:27017/temporal_visibility?replicaSet=rafay-mongodb&ssl=false"
           # Individual connection parameters (used if uri is not provided)
-          host: ""
+          host: "rafay-mongodb-0.rafay-mongodb-svc.rafay-core.svc.cluster.local"
           port: 27017
           database: "temporal_visibility"
           collection: "temporal_visibility"
-          username: "temporal"
-          password: "temporal"
-          existingSecret: ""
-          secretName: ""
+          username: "aisrvdbuser"
+          password: "aisrvdbuser"
+          existingSecret: "rafay-mongodb-admin-aisrvdbuser"
+          secretName: "rafay-mongodb-admin-aisrvdbuser"
           maxConns: 20
           maxIdleConns: 20
           maxConnLifetime: "1h"
@@ -393,8 +393,8 @@ server:
 admintools:
   enabled: true
   image:
-    repository: temporalio/admin-tools
-    tag: 1.28.0-tctl-1.18.2-cli-1.3.0
+    repository: registry.dev.rafay-edge.net/rafay/admin-tools
+    tag: 20250702-193652
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
@@ -493,7 +493,7 @@ schema:
   containerSecurityContext: {}
   securityContext: {}
 elasticsearch:
-  enabled: true
+  enabled: false
   replicas: 3
   persistence:
     enabled: false
@@ -507,11 +507,11 @@ elasticsearch:
   password: ""
   visibilityIndex: "temporal_visibility_v1_dev"
 prometheus:
-  enabled: true
+  enabled: false
   nodeExporter:
     enabled: false
 grafana:
-  enabled: true
+  enabled: false
   replicas: 1
   testFramework:
     enabled: false
@@ -567,7 +567,7 @@ grafana:
         url: https://raw.githubusercontent.com/temporalio/dashboards/helm/misc/worker-service-specific.json
         datasource: TemporalMetrics
 cassandra:
-  enabled: true
+  enabled: false
   persistence:
     enabled: false
   image:
@@ -588,16 +588,16 @@ mysql:
   enabled: false
 
 mongodb:
-  enabled: false
+  enabled: true
   # External MongoDB configuration (for helper functions)
   external:
-    enabled: false
-    host: "mongodb.example.com"
+    enabled: true
+    host: "rafay-mongodb-0.rafay-mongodb-svc.rafay-core.svc.cluster.local"
     port: 27017
-    username: "temporal"
-    password: "temporal"
+    username: "aisrvdbuser"
+    password: "aisrvdbuser"
     database: "temporal"
     authSource: "admin"
     # Optional: Use existing secret for credentials
-    existingSecret: ""
+    existingSecret: "rafay-mongodb-admin-aisrvdbuser"
     secretKey: "password"
