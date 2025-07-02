@@ -177,8 +177,8 @@ server:
           collection: "temporal"
           username: "aisrvdbuser"
           password: "aisrvdbuser"
-          existingSecret: ""
-          secretName: ""
+          existingSecret: "temporalio-default-store"
+          secretName: "temporalio-default-store"
           maxConns: 20
           maxIdleConns: 20
           maxConnLifetime: "1h"
@@ -229,8 +229,8 @@ server:
           collection: "temporal_visibility"
           username: "aisrvdbuser"
           password: "aisrvdbuser"
-          existingSecret: ""
-          secretName: ""
+          existingSecret: "temporalio-visibility-store"
+          secretName: "temporalio-visibility-store"
           maxConns: 20
           maxIdleConns: 20
           maxConnLifetime: "1h"
