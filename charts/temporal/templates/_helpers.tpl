@@ -570,8 +570,8 @@ MongoDB helper functions
 {{- $store := index . 1 -}}
 {{- $storeConfig := index $global.Values.server.config.persistence $store -}}
 {{- $driverConfig := $storeConfig.mongodb -}}
-{{- with $driverConfig.secretKey -}}
-{{- print . -}}
+{{- if $driverConfig.secretKey -}}
+{{- print $driverConfig.secretKey -}}
 {{- else if and $global.Values.mongodb.external.enabled (eq (include "temporal.persistence.driver" (list $global $store)) "mongodb") -}}
 {{- $global.Values.mongodb.external.secretKey -}}
 {{- else -}}
