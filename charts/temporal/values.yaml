@@ -177,8 +177,8 @@ server:
           collection: "temporal"
           username: "aisrvdbuser"
           password: "aisrvdbuser"
-          existingSecret: "rafay-mongodb-admin-aisrvdbuser"
-          secretName: "rafay-mongodb-admin-aisrvdbuser"
+          existingSecret: ""
+          secretName: ""
           maxConns: 20
           maxIdleConns: 20
           maxConnLifetime: "1h"
@@ -229,8 +229,8 @@ server:
           collection: "temporal_visibility"
           username: "aisrvdbuser"
           password: "aisrvdbuser"
-          existingSecret: "rafay-mongodb-admin-aisrvdbuser"
-          secretName: "rafay-mongodb-admin-aisrvdbuser"
+          existingSecret: ""
+          secretName: ""
           maxConns: 20
           maxIdleConns: 20
           maxConnLifetime: "1h"
@@ -599,5 +599,5 @@ mongodb:
     database: "temporal"
     authSource: "admin"
     # Optional: Use existing secret for credentials
-    existingSecret: "rafay-mongodb-admin-aisrvdbuser"
+    existingSecret: ""
     secretKey: "password"
