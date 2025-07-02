@@ -167,6 +167,27 @@ server:
           maxConnLifetime: "1h"
           # connectAttributes:
           # tx_isolation: 'READ-COMMITTED'
+        mongodb:
+          # MongoDB connection URI (if provided, other connection parameters are ignored)
+          uri: ""
+          # Individual connection parameters (used if uri is not provided)
+          host: ""
+          port: 27017
+          database: "temporal"
+          collection: "temporal"
+          username: "temporal"
+          password: "temporal"
+          existingSecret: ""
+          secretName: ""
+          maxConns: 20
+          maxIdleConns: 20
+          maxConnLifetime: "1h"
+          # Additional MongoDB options
+          # ssl: false
+          # sslInsecure: false
+          # sslCertFile: ""
+          # sslKeyFile: ""
+          # sslCaFile: ""
       visibility:
         driver: "cassandra"
         cassandra:
@@ -198,6 +219,27 @@ server:
           maxConnLifetime: "1h"
           # connectAttributes:
           #   tx_isolation: 'READ-COMMITTED'
+        mongodb:
+          # MongoDB connection URI (if provided, other connection parameters are ignored)
+          uri: ""
+          # Individual connection parameters (used if uri is not provided)
+          host: ""
+          port: 27017
+          database: "temporal_visibility"
+          collection: "temporal_visibility"
+          username: "temporal"
+          password: "temporal"
+          existingSecret: ""
+          secretName: ""
+          maxConns: 20
+          maxIdleConns: 20
+          maxConnLifetime: "1h"
+          # Additional MongoDB options
+          # ssl: false
+          # sslInsecure: false
+          # sslCertFile: ""
+          # sslKeyFile: ""
+          # sslCaFile: ""
     namespaces:
       # Enable this to create namespaces
       create: false
@@ -544,3 +586,18 @@ cassandra:
     type: ClusterIP
 mysql:
   enabled: false
+
+mongodb:
+  enabled: false
+  # External MongoDB configuration (for helper functions)
+  external:
+    enabled: false
+    host: "mongodb.example.com"
+    port: 27017
+    username: "temporal"
+    password: "temporal"
+    database: "temporal"
+    authSource: "admin"
+    # Optional: Use existing secret for credentials
+    existingSecret: ""
+    secretKey: "password"

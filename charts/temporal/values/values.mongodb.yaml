@@ -1,0 +1,54 @@
+server:
+  config:
+    persistence:
+      default:
+        driver: "mongodb"
+        mongodb:
+          uri: "mongodb://temporal:temporal@mongodb.example.com:27017/temporal?authSource=admin"
+          database: "temporal"
+          collection: "temporal"
+          username: "temporal"
+          password: "temporal"
+          maxConns: 20
+          maxIdleConns: 20
+          maxConnLifetime: "1h"
+
+      visibility:
+        driver: "mongodb"
+        mongodb:
+          uri: "mongodb://temporal:temporal@mongodb.example.com:27017/temporal_visibility?authSource=admin"
+          database: "temporal_visibility"
+          collection: "temporal_visibility"
+          username: "temporal"
+          password: "temporal"
+          maxConns: 20
+          maxIdleConns: 20
+          maxConnLifetime: "1h"
+
+cassandra:
+  enabled: false
+
+mysql:
+  enabled: false
+
+postgresql:
+  enabled: false
+
+mongodb:
+  enabled: false
+  external:
+    enabled: true
+    host: "mongodb.example.com"
+    port: 27017
+    username: "temporal"
+    password: "temporal"
+    database: "temporal"
+    authSource: "admin"
+
+schema:
+  createDatabase:
+    enabled: false
+  setup:
+    enabled: false
+  update:
+    enabled: false 

@@ -39,6 +39,16 @@ data:
             {{- with (omit $server.config.persistence.default.sql "driver" "driverName" "host" "port" "connectAddr" "connectProtocol" "database" "databaseName" "user" "password" "existingSecret") }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
+          {{- else if eq (include "temporal.persistence.driver" (list $ "default")) "mongodb" }}
+          mongodb:
+            uri: "{{ include "temporal.persistence.mongodb.uri" (list $ "default") }}"
+            database: "{{ include "temporal.persistence.mongodb.database" (list $ "default") }}"
+            collection: "{{ $server.config.persistence.default.mongodb.collection }}"
+            username: "{{ include "temporal.persistence.mongodb.user" (list $ "default") }}"
+            password: {{ `{{ .Env.TEMPORAL_STORE_PASSWORD | quote }}` }}
+            {{- with (omit $server.config.persistence.default.mongodb "uri" "database" "collection" "username" "password" "existingSecret") }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
           {{- with $server.config.persistence.default.faultInjection}}
           faultInjection:
@@ -73,6 +83,16 @@ data:
             user: "{{ include "temporal.persistence.sql.user" (list $ "visibility") }}"
             password: {{ `{{ .Env.TEMPORAL_VISIBILITY_STORE_PASSWORD  | quote }}` }}
             {{- with (omit $server.config.persistence.visibility.sql "driver" "driverName" "host" "port" "connectAddr" "connectProtocol" "database" "databaseName" "user" "password" "existingSecret") }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- else if eq (include "temporal.persistence.driver" (list $ "visibility")) "mongodb" }}
+          mongodb:
+            uri: "{{ include "temporal.persistence.mongodb.uri" (list $ "visibility") }}"
+            database: "{{ include "temporal.persistence.mongodb.database" (list $ "visibility") }}"
+            collection: "{{ $server.config.persistence.visibility.mongodb.collection }}"
+            username: "{{ include "temporal.persistence.mongodb.user" (list $ "visibility") }}"
+            password: {{ `{{ .Env.TEMPORAL_VISIBILITY_STORE_PASSWORD  | quote }}` }}
+            {{- with (omit $server.config.persistence.visibility.mongodb "uri" "database" "collection" "username" "password" "existingSecret") }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
         {{- end }}

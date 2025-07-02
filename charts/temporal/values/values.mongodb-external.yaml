@@ -1,0 +1,83 @@
+# Example configuration for external MongoDB
+# Replace the placeholder values with your actual MongoDB connection details
+
+server:
+  config:
+    persistence:
+      default:
+        driver: "mongodb"
+        mongodb:
+          # You can specify the full URI directly
+          uri: "mongodb://username:password@your-mongodb-host:27017/temporal?authSource=admin&ssl=true"
+          database: "temporal"
+          collection: "temporal"
+          # Or specify individual components (will be used to construct URI if uri is not provided)
+          host: "your-mongodb-host"
+          port: 27017
+          username: "temporal"
+          password: "your-password"
+          maxConns: 20
+          maxIdleConns: 20
+          maxConnLifetime: "1h"
+          # Additional MongoDB options
+          # ssl: true
+          # sslInsecure: false
+          # sslCertFile: "/path/to/cert.pem"
+          # sslKeyFile: "/path/to/key.pem"
+          # sslCaFile: "/path/to/ca.pem"
+
+      visibility:
+        driver: "mongodb"
+        mongodb:
+          # You can specify the full URI directly
+          uri: "mongodb://username:password@your-mongodb-host:27017/temporal_visibility?authSource=admin&ssl=true"
+          database: "temporal_visibility"
+          collection: "temporal_visibility"
+          # Or specify individual components (will be used to construct URI if uri is not provided)
+          host: "your-mongodb-host"
+          port: 27017
+          username: "temporal"
+          password: "your-password"
+          maxConns: 20
+          maxIdleConns: 20
+          maxConnLifetime: "1h"
+          # Additional MongoDB options
+          # ssl: true
+          # sslInsecure: false
+          # sslCertFile: "/path/to/cert.pem"
+          # sslKeyFile: "/path/to/key.pem"
+          # sslCaFile: "/path/to/ca.pem"
+
+# Disable other database options
+cassandra:
+  enabled: false
+
+mysql:
+  enabled: false
+
+postgresql:
+  enabled: false
+
+# External MongoDB configuration (optional, for helper functions)
+mongodb:
+  enabled: false
+  external:
+    enabled: true
+    host: "your-mongodb-host"
+    port: 27017
+    username: "temporal"
+    password: "your-password"
+    database: "temporal"
+    authSource: "admin"
+    # Optional: Use existing secret for credentials
+    # existingSecret: "mongodb-credentials"
+    # secretKey: "password"
+
+# Disable schema setup since we're using external MongoDB
+schema:
+  createDatabase:
+    enabled: false
+  setup:
+    enabled: false
+  update:
+    enabled: false 

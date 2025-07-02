@@ -232,6 +232,93 @@ helm install \
 
 *NOTE:* Requires PostgreSQL 12+, older versions are not supported.
 
+### Install with your own MongoDB
+
+You might already be operating a MongoDB instance that you want to use with Temporal.
+
+In this case, create and configure temporal databases on your MongoDB host. You'll need to create two databases: one for the default store and one for visibility.
+
+Here are example commands you can use to create and initialize the databases:
+
+```bash
+# Connect to your MongoDB instance
+mongosh --host your-mongodb-host --port 27017 --username your-username --password your-password --authenticationDatabase admin
+
+# Create the temporal database
+use temporal
+db.createCollection("temporal")
+
+# Create the temporal_visibility database  
+use temporal_visibility
+db.createCollection("temporal_visibility")
+```
+
+Once you've initialized the databases, you can configure Temporal to use MongoDB in several ways:
+
+**Option 1: Using the provided values file**
+
+Fill in the configuration values in `values/values.mongodb-external.yaml`, and run:
+
+```bash
+helm install --repo https://go.temporal.io/helm-charts -f values/values.mongodb-external.yaml temporaltest temporal --timeout 900s
+```
+
+**Option 2: Using command line parameters**
+
+```bash
+helm install \
+  --repo https://go.temporal.io/helm-charts \
+  --set server.config.persistence.default.driver=mongodb \
+  --set server.config.persistence.default.mongodb.uri="mongodb://username:password@your-mongodb-host:27017/temporal?authSource=admin" \
+  --set server.config.persistence.default.mongodb.database=temporal \
+  --set server.config.persistence.default.mongodb.collection=temporal \
+  --set server.config.persistence.visibility.driver=mongodb \
+  --set server.config.persistence.visibility.mongodb.uri="mongodb://username:password@your-mongodb-host:27017/temporal_visibility?authSource=admin" \
+  --set server.config.persistence.visibility.mongodb.database=temporal_visibility \
+  --set server.config.persistence.visibility.mongodb.collection=temporal_visibility \
+  --set cassandra.enabled=false \
+  --set mysql.enabled=false \
+  --set postgresql.enabled=false \
+  --set elasticsearch.enabled=false \
+  --set schema.createDatabase.enabled=false \
+  --set schema.setup.enabled=false \
+  --set schema.update.enabled=false \
+  temporaltest temporal \
+  --timeout 900s
+```
+
+**Option 3: Using individual connection parameters**
+
+```bash
+helm install \
+  --repo https://go.temporal.io/helm-charts \
+  --set server.config.persistence.default.driver=mongodb \
+  --set server.config.persistence.default.mongodb.host=your-mongodb-host \
+  --set server.config.persistence.default.mongodb.port=27017 \
+  --set server.config.persistence.default.mongodb.username=your-username \
+  --set server.config.persistence.default.mongodb.password=your-password \
+  --set server.config.persistence.default.mongodb.database=temporal \
+  --set server.config.persistence.default.mongodb.collection=temporal \
+  --set server.config.persistence.visibility.driver=mongodb \
+  --set server.config.persistence.visibility.mongodb.host=your-mongodb-host \
+  --set server.config.persistence.visibility.mongodb.port=27017 \
+  --set server.config.persistence.visibility.mongodb.username=your-username \
+  --set server.config.persistence.visibility.mongodb.password=your-password \
+  --set server.config.persistence.visibility.mongodb.database=temporal_visibility \
+  --set server.config.persistence.visibility.mongodb.collection=temporal_visibility \
+  --set cassandra.enabled=false \
+  --set mysql.enabled=false \
+  --set postgresql.enabled=false \
+  --set elasticsearch.enabled=false \
+  --set schema.createDatabase.enabled=false \
+  --set schema.setup.enabled=false \
+  --set schema.update.enabled=false \
+  temporaltest temporal \
+  --timeout 900s
+```
+
+*NOTE:* MongoDB support requires Temporal server version 1.28.0 or later. Make sure your MongoDB instance supports the required features and is properly configured for authentication.
+
 ### Install with your own Cassandra
 
 You might already be operating a Cassandra instance that you want to use with Temporal.

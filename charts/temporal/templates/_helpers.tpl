@@ -169,6 +169,8 @@ Source: https://stackoverflow.com/a/52024583/3027614
 {{- print "sql" -}}
 {{- else if $global.Values.postgresql.enabled -}}
 {{- print "sql" -}}
+{{- else if or $global.Values.mongodb.enabled $global.Values.mongodb.external.enabled -}}
+{{- print "mongodb" -}}
 {{- else -}}
 {{- required (printf "Please specify persistence driver for %s store" $store) $storeConfig.driver -}}
 {{- end -}}
@@ -450,4 +452,143 @@ To modify camelCase to hyphenated internal-frontend service name
     {{- else }}
         {{- print $service }}
     {{- end }}
+{{- end -}}
+
+{{/*
+MongoDB helper functions
+*/}}
+{{- define "temporal.persistence.mongodb.uri" -}}
+{{- $global := index . 0 -}}
+{{- $store := index . 1 -}}
+{{- $storeConfig := index $global.Values.server.config.persistence $store -}}
+{{- if $storeConfig.mongodb.uri -}}
+{{- $storeConfig.mongodb.uri -}}
+{{- else if and $global.Values.mongodb.enabled (eq (include "temporal.persistence.driver" (list $global $store)) "mongodb") -}}
+{{- printf "mongodb://%s:%s@%s:%d/%s" (include "temporal.persistence.mongodb.user" (list $global $store)) (include "temporal.persistence.mongodb.password" (list $global $store)) (include "temporal.persistence.mongodb.host" (list $global $store)) (include "temporal.persistence.mongodb.port" (list $global $store)) (include "temporal.persistence.mongodb.database" (list $global $store)) -}}
+{{- else -}}
+{{- required (printf "Please specify mongodb uri for %s store" $store) $storeConfig.mongodb.uri -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "temporal.persistence.mongodb.host" -}}
+{{- $global := index . 0 -}}
+{{- $store := index . 1 -}}
+{{- $storeConfig := index $global.Values.server.config.persistence $store -}}
+{{- if $storeConfig.mongodb.host -}}
+{{- $storeConfig.mongodb.host -}}
+{{- else if and $global.Values.mongodb.enabled (eq (include "temporal.persistence.driver" (list $global $store)) "mongodb") -}}
+{{- include "mongodb.host" $global -}}
+{{- else if and $global.Values.mongodb.external.enabled (eq (include "temporal.persistence.driver" (list $global $store)) "mongodb") -}}
+{{- $global.Values.mongodb.external.host -}}
+{{- else -}}
+{{- required (printf "Please specify mongodb host for %s store" $store) $storeConfig.mongodb.host -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "temporal.persistence.mongodb.port" -}}
+{{- $global := index . 0 -}}
+{{- $store := index . 1 -}}
+{{- $storeConfig := index $global.Values.server.config.persistence $store -}}
+{{- if $storeConfig.mongodb.port -}}
+{{- $storeConfig.mongodb.port -}}
+{{- else if and $global.Values.mongodb.enabled (eq (include "temporal.persistence.driver" (list $global $store)) "mongodb") -}}
+{{- $global.Values.mongodb.service.port -}}
+{{- else if and $global.Values.mongodb.external.enabled (eq (include "temporal.persistence.driver" (list $global $store)) "mongodb") -}}
+{{- $global.Values.mongodb.external.port -}}
+{{- else -}}
+{{- required (printf "Please specify mongodb port for %s store" $store) $storeConfig.mongodb.port -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "temporal.persistence.mongodb.database" -}}
+{{- $global := index . 0 -}}
+{{- $store := index . 1 -}}
+{{- $storeConfig := index $global.Values.server.config.persistence $store -}}
+{{- if $storeConfig.mongodb.database -}}
+{{- $storeConfig.mongodb.database -}}
+{{- else -}}
+{{- required (printf "Please specify database for %s store" $store) -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "temporal.persistence.mongodb.user" -}}
+{{- $global := index . 0 -}}
+{{- $store := index . 1 -}}
+{{- $storeConfig := index $global.Values.server.config.persistence $store -}}
+{{- if $storeConfig.mongodb.username -}}
+{{- $storeConfig.mongodb.username -}}
+{{- else if and $global.Values.mongodb.enabled (eq (include "temporal.persistence.driver" (list $global $store)) "mongodb") -}}
+{{- $global.Values.mongodb.auth.username -}}
+{{- else if and $global.Values.mongodb.external.enabled (eq (include "temporal.persistence.driver" (list $global $store)) "mongodb") -}}
+{{- $global.Values.mongodb.external.username -}}
+{{- else -}}
+{{- required (printf "Please specify mongodb user for %s store" $store) $storeConfig.mongodb.username -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "temporal.persistence.mongodb.password" -}}
+{{- $global := index . 0 -}}
+{{- $store := index . 1 -}}
+{{- $storeConfig := index $global.Values.server.config.persistence $store -}}
+{{- if $storeConfig.mongodb.password -}}
+{{- $storeConfig.mongodb.password -}}
+{{- else if and $global.Values.mongodb.enabled (eq (include "temporal.persistence.driver" (list $global $store)) "mongodb") -}}
+{{- $global.Values.mongodb.auth.password -}}
+{{- else if and $global.Values.mongodb.external.enabled (eq (include "temporal.persistence.driver" (list $global $store)) "mongodb") -}}
+{{- $global.Values.mongodb.external.password -}}
+{{- else -}}
+{{- required (printf "Please specify mongodb password for %s store" $store) $storeConfig.mongodb.password -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "temporal.persistence.mongodb.secretName" -}}
+{{- $global := index . 0 -}}
+{{- $store := index . 1 -}}
+{{- $storeConfig := index $global.Values.server.config.persistence $store -}}
+{{- $driverConfig := $storeConfig.mongodb -}}
+{{- if $driverConfig.existingSecret -}}
+{{- $driverConfig.existingSecret -}}
+{{- else if $driverConfig.secretName -}}
+{{- print $driverConfig.secretName -}}
+{{- else if $storeConfig.mongodb.password -}}
+{{- include "temporal.componentname" (list $global (printf "%s-store" $store)) -}}
+{{- else if and $global.Values.mongodb.enabled (eq (include "temporal.persistence.driver" (list $global $store)) "mongodb") -}}
+{{- include "mongodb.secretName" $global -}}
+{{- else if and $global.Values.mongodb.external.enabled (eq (include "temporal.persistence.driver" (list $global $store)) "mongodb") -}}
+{{- if $global.Values.mongodb.external.existingSecret -}}
+{{- $global.Values.mongodb.external.existingSecret -}}
+{{- else -}}
+{{- include "temporal.componentname" (list $global (printf "%s-store" $store)) -}}
+{{- end -}}
+{{- else -}}
+{{- required (printf "Please specify mongodb password or existing secret for %s store" $store) $storeConfig.mongodb.existingSecret -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "temporal.persistence.mongodb.secretKey" -}}
+{{- $global := index . 0 -}}
+{{- $store := index . 1 -}}
+{{- $storeConfig := index $global.Values.server.config.persistence $store -}}
+{{- $driverConfig := $storeConfig.mongodb -}}
+{{- with $driverConfig.secretKey -}}
+{{- print . -}}
+{{- else if and $global.Values.mongodb.external.enabled (eq (include "temporal.persistence.driver" (list $global $store)) "mongodb") -}}
+{{- $global.Values.mongodb.external.secretKey -}}
+{{- else -}}
+{{- print "password" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+MongoDB host helper
+*/}}
+{{- define "mongodb.host" -}}
+{{- printf "%s-mongodb" (include "temporal.fullname" .) -}}
+{{- end -}}
+
+{{/*
+MongoDB secret name helper
+*/}}
+{{- define "mongodb.secretName" -}}
+{{- printf "%s-mongodb" (include "temporal.fullname" .) -}}
 {{- end -}}
