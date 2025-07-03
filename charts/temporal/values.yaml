@@ -291,7 +291,7 @@ server:
     podDisruptionBudget: {}
   internalFrontend:
     # Enable this to create internal-frontend
-    enabled: true
+    enabled: false
     service:
       # Evaluated as template
       annotations: {}
