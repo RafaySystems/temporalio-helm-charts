@@ -20,7 +20,7 @@ server:
   enabled: true
   image:
     repository: registry.dev.rafay-edge.net/rafay/auto-setup
-    tag: 20250702-193652
+    tag: 20250703-064213
     pullPolicy: IfNotPresent
   # Global default settings (can be overridden per service)
   replicaCount: 1
@@ -399,7 +399,7 @@ admintools:
   enabled: true
   image:
     repository: registry.dev.rafay-edge.net/rafay/admin-tools
-    tag: 20250702-193652
+    tag: 20250703-064213
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
