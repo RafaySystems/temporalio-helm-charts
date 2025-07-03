@@ -485,12 +485,12 @@ web:
   podDisruptionBudget: {}
 schema:
   createDatabase:
-    enabled: false
+    enabled: true
   setup:
-    enabled: false
+    enabled: true
     backoffLimit: 100
   update:
-    enabled: false
+    enabled: true
     backoffLimit: 100
   podAnnotations: {}
   podLabels: {}

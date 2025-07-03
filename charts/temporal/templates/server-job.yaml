@@ -49,6 +49,18 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
         {{- end }}
+        {{- if or $.Values.mongodb.enabled $.Values.mongodb.external.enabled }}
+        - name: check-mongodb
+          image: "{{ $.Values.admintools.image.repository }}:{{ $.Values.admintools.image.tag }}"
+          imagePullPolicy: {{ $.Values.admintools.image.pullPolicy }}
+          command: ['sh', '-c', 'until mongosh --host $MONGODB_HOST --port $MONGODB_PORT --username $MONGODB_USER --password $MONGODB_PASSWORD --eval "db.adminCommand(\"ping\")" 2>&1 > /dev/null; do echo waiting for mongodb to start; sleep 1; done;']
+          env:
+            {{- include "temporal.admintools-env" (list $ "default") | nindent 12 }}
+          {{- with $.Values.schema.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
         {{- if $.Values.schema.createDatabase.enabled }}
           {{- range $store := (list "default" "visibility") }}
             {{- $storeConfig := index $.Values.server.config.persistence $store }}
@@ -61,6 +73,8 @@ spec:
           command: ['temporal-cassandra-tool', 'create', '-k', '{{ $storeConfig.cassandra.keyspace }}', '--replication-factor', '{{ $storeConfig.cassandra.replicationFactor }}']
               {{- else if eq $driver "sql" }}
           command: ['temporal-sql-tool', 'create-database']
+              {{- else if eq $driver "mongodb" }}
+          command: ['sh', '-c', 'mongosh --host $MONGODB_HOST --port $MONGODB_PORT --username $MONGODB_USER --password $MONGODB_PASSWORD --eval "use $MONGODB_DATABASE; db.createCollection(\"$MONGODB_COLLECTION\")"']
               {{- end }}
           env:
               {{- include "temporal.admintools-env" (list $ $store) | nindent 12 }}
@@ -90,6 +104,8 @@ spec:
           command: ['temporal-cassandra-tool', 'setup-schema', '-v', '0.0']
             {{- else if eq $driver "sql" }}
           command: ['temporal-sql-tool', 'setup-schema', '-v', '0.0']
+            {{- else if eq $driver "mongodb" }}
+          command: ['sh', '-c', 'echo "MongoDB schema setup not required - collections are created automatically"']
             {{- else if eq $driver "elasticsearch" }}
           command: ['sh', '-c']
           args:
@@ -131,6 +147,8 @@ spec:
                 {{- else if or (eq $plugin "postgres12") (eq $plugin "postgres12_pgx") }}
           command: ['temporal-sql-tool', 'update-schema', '--schema-dir', '/etc/temporal/schema/postgresql/v12/{{ $schema }}/versioned']
                 {{- end }}
+              {{- else if eq $driver "mongodb" }}
+          command: ['sh', '-c', 'echo "MongoDB schema update not required - collections are created automatically"']
               {{- end }}
           env:
               {{- include "temporal.admintools-env" (list $ $store) | nindent 12 }}

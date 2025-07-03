@@ -93,5 +93,25 @@
   value: {{ $driverConfig.version }}
 - name: ES_VISIBILITY_INDEX
   value: {{ $driverConfig.visibilityIndex }}
+{{- else if eq $driver "mongodb" -}}
+- name: MONGODB_URI
+  value: {{ include "temporal.persistence.mongodb.uri" (list $global $store) }}
+- name: MONGODB_HOST
+  value: {{ include "temporal.persistence.mongodb.host" (list $global $store) }}
+- name: MONGODB_PORT
+  value: {{ include "temporal.persistence.mongodb.port" (list $global $store) | quote }}
+- name: MONGODB_DATABASE
+  value: {{ include "temporal.persistence.mongodb.database" (list $global $store) }}
+- name: MONGODB_USER
+  value: {{ include "temporal.persistence.mongodb.user" (list $global $store) }}
+- name: MONGODB_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "temporal.persistence.secretName" (list $global $store) }}
+      key: {{ include "temporal.persistence.secretKey" (list $global $store) }}
+  {{- with $driverConfig.collection }}
+- name: MONGODB_COLLECTION
+  value: {{ . }}
+  {{- end }}
 {{- end }}
 {{- end -}}
