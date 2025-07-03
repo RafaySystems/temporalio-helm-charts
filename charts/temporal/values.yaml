@@ -20,7 +20,7 @@ server:
   enabled: true
   image:
     repository: registry.dev.rafay-edge.net/rafay/server
-    tag: 20250703-094740
+    tag: 20250703-150959
     pullPolicy: IfNotPresent
   # Global default settings (can be overridden per service)
   replicaCount: 1
@@ -291,7 +291,7 @@ server:
     podDisruptionBudget: {}
   internalFrontend:
     # Enable this to create internal-frontend
-    enabled: false
+    enabled: true
     service:
       # Evaluated as template
       annotations: {}
@@ -399,7 +399,7 @@ admintools:
   enabled: true
   image:
     repository: registry.dev.rafay-edge.net/rafay/admin-tools
-    tag: 20250703-094740
+    tag: 20250703-150959
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
