@@ -41,8 +41,8 @@ data:
             {{- end }}
           {{- else if eq (include "temporal.persistence.driver" (list $ "default")) "mongodb" }}
           mongodb:
-            uri: "{{ include "temporal.persistence.mongodb.uri" (list $ "default") }}"
-            database: "{{ include "temporal.persistence.mongodb.database" (list $ "default") }}"
+            connectAddr: "{{ include "temporal.persistence.mongodb.uri" (list $ "default") }}"
+            databaseName: "{{ include "temporal.persistence.mongodb.database" (list $ "default") }}"
             collection: "{{ $server.config.persistence.default.mongodb.collection }}"
             username: "{{ include "temporal.persistence.mongodb.user" (list $ "default") }}"
             password: {{ `{{ .Env.TEMPORAL_STORE_PASSWORD | quote }}` }}
@@ -87,8 +87,8 @@ data:
             {{- end }}
         {{- else if eq (include "temporal.persistence.driver" (list $ "visibility")) "mongodb" }}
           mongodb:
-            uri: "{{ include "temporal.persistence.mongodb.uri" (list $ "visibility") }}"
-            database: "{{ include "temporal.persistence.mongodb.database" (list $ "visibility") }}"
+            connectAddr: "{{ include "temporal.persistence.mongodb.uri" (list $ "visibility") }}"
+            databaseName: "{{ include "temporal.persistence.mongodb.database" (list $ "visibility") }}"
             collection: "{{ $server.config.persistence.visibility.mongodb.collection }}"
             username: "{{ include "temporal.persistence.mongodb.user" (list $ "visibility") }}"
             password: {{ `{{ .Env.TEMPORAL_VISIBILITY_STORE_PASSWORD  | quote }}` }}

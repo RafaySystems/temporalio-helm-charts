@@ -19,8 +19,8 @@ additionalLabels: {}
 server:
   enabled: true
   image:
-    repository: registry.dev.rafay-edge.net/rafay/auto-setup
-    tag: 20250703-064213
+    repository: registry.dev.rafay-edge.net/rafay/server
+    tag: 20250703-094740
     pullPolicy: IfNotPresent
   # Global default settings (can be overridden per service)
   replicaCount: 1
@@ -170,7 +170,7 @@ server:
           # tx_isolation: 'READ-COMMITTED'
         mongodb:
           # MongoDB connection URI (if provided, other connection parameters are ignored)
-          uri: "mongodb://aisrvdbuser:aisrvdbuser@rafay-mongodb-0.rafay-mongodb-svc.rafay-core.svc.cluster.local:27017/temporal?replicaSet=rafay-mongodb&ssl=false"
+          uri: "rafay-mongodb-0.rafay-mongodb-svc.rafay-core.svc.cluster.local:27017/admin?replicaSet=rafay-mongodb&ssl=false"
           # Individual connection parameters (used if uri is not provided)
           host: "rafay-mongodb-0.rafay-mongodb-svc.rafay-core.svc.cluster.local"
           port: 27017
@@ -222,7 +222,7 @@ server:
           #   tx_isolation: 'READ-COMMITTED'
         mongodb:
           # MongoDB connection URI (if provided, other connection parameters are ignored)
-          uri: "mongodb://aisrvdbuser:aisrvdbuser@rafay-mongodb-0.rafay-mongodb-svc.rafay-core.svc.cluster.local:27017/temporal_visibility?replicaSet=rafay-mongodb&ssl=false"
+          uri: "rafay-mongodb-0.rafay-mongodb-svc.rafay-core.svc.cluster.local:27017/admin?replicaSet=rafay-mongodb&ssl=false"
           # Individual connection parameters (used if uri is not provided)
           host: "rafay-mongodb-0.rafay-mongodb-svc.rafay-core.svc.cluster.local"
           port: 27017
@@ -399,7 +399,7 @@ admintools:
   enabled: true
   image:
     repository: registry.dev.rafay-edge.net/rafay/admin-tools
-    tag: 20250703-064213
+    tag: 20250703-094740
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
