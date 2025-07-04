@@ -596,7 +596,7 @@ mongodb:
   enabled: false
   # External MongoDB configuration (for helper functions)
   external:
-    enabled: true
+    enabled: false
     host: "rafay-mongodb-0.rafay-mongodb-svc.rafay-core.svc.cluster.local"
     port: 27017
     username: "aisrvdbuser"
