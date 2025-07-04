@@ -485,7 +485,7 @@ web:
   podDisruptionBudget: {}
 schema:
   createDatabase:
-    enabled: true
+    enabled: false
   setup:
     enabled: true
     backoffLimit: 100
