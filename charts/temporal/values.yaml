@@ -155,7 +155,7 @@ server:
               consistency: "local_quorum"
               serialConsistency: "local_serial"
         sql:
-          driver: "postgres13"
+          driver: "postgres12"
           host: "postgres-admin.rafay-core.svc.cluster.local"
           port: 5432
           database: "temporal"
@@ -207,7 +207,7 @@ server:
               consistency: "local_quorum"
               serialConsistency: "local_serial"
         sql:
-          driver: "postgres13"
+          driver: "postgres12"
           host: "postgres-admin.rafay-core.svc.cluster.local"
           port: 5432
           database: "temporal_visibility"
