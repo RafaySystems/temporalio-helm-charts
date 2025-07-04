@@ -138,7 +138,7 @@ server:
       defaultStore: default
       additionalStores: {}
       default:
-        driver: "mongodb"
+        driver: "sql"
         cassandra:
           hosts: []
           # port: 9042
@@ -155,12 +155,12 @@ server:
               consistency: "local_quorum"
               serialConsistency: "local_serial"
         sql:
-          driver: "mysql8"
-          host: "mysql"
-          port: 3306
+          driver: "postgres13"
+          host: "postgres-admin.rafay-core.svc.cluster.local"
+          port: 5432
           database: "temporal"
-          user: "temporal"
-          password: "temporal"
+          user: "temporaldbuser"
+          password: "h2Ir6WV4USQ2rb4EIqn8EcpBNKeK5WQJF0xYLhMqfGFPotntRsHxtsEwqaXhtFLP"
           existingSecret: ""
           secretName: ""
           maxConns: 20
@@ -190,7 +190,7 @@ server:
           # sslKeyFile: ""
           # sslCaFile: ""
       visibility:
-        driver: "mongodb"
+        driver: "sql"
         cassandra:
           hosts: []
           # port: 9042
@@ -207,12 +207,12 @@ server:
               consistency: "local_quorum"
               serialConsistency: "local_serial"
         sql:
-          driver: "mysql8"
-          host: "mysql"
-          port: 3306
+          driver: "postgres13"
+          host: "postgres-admin.rafay-core.svc.cluster.local"
+          port: 5432
           database: "temporal_visibility"
-          user: "temporal"
-          password: "temporal"
+          user: "temporalvdbuser"
+          password: "ZWkfRXJ0zMkghtdKvLKqCi5cOo0ObW6HiHryUhSkTvBxcs12nkN6uEgCGdZkcvMD"
           existingSecret: ""
           secretName: ""
           maxConns: 20
@@ -593,7 +593,7 @@ mysql:
   enabled: false
 
 mongodb:
-  enabled: true
+  enabled: false
   # External MongoDB configuration (for helper functions)
   external:
     enabled: true
