@@ -582,7 +582,7 @@ web:
       value: "true"
     # Remove OIDC configuration since backend auth is disabled
     - name: TEMPORAL_AUTH_PROVIDER_URL
-       value: "https://console.gaap.dev.rafay-edge.net/dex"
+      value: "https://console.gaap.dev.rafay-edge.net/dex"
     - name: TEMPORAL_AUTH_CLIENT_ID
       value: "temporal-web-ui"
     - name: TEMPORAL_AUTH_CLIENT_SECRET
