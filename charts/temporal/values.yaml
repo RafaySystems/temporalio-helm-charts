@@ -24,7 +24,7 @@ frontendproxy:
     membershipPort: 6933
     httpPort: 7243
   image:
-    repository: registry.dev.rafay-edge.net/rafay/frontend-proxy
+    repository: registry.dev.rafay-edge.net/rafay/temporal-frontend-proxy
     tag: 20250708-104259
     pullPolicy: IfNotPresent
   issuer: "https://console.gaap.dev.rafay-edge.net/dex"
