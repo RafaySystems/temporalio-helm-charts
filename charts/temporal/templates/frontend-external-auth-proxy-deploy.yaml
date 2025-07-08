@@ -24,7 +24,7 @@ spec:
       serviceAccountName: {{ include "temporal.fullname" $ }}-frontend-proxy-sa
       containers:
       - name: temporal-frontend-proxy
-        image: "{{ .Values.frontend-proxy.image.repository }}:{{ .Values.frontend-proxy.image.tag }}"
+        image: "{{ .Values.frontendproxy.image.repository }}:{{ .Values.frontendproxy.image.tag }}"
         ports:
         - containerPort: 8081
           name: http
@@ -34,7 +34,7 @@ spec:
         - name: TEMPORAL_FRONTEND_URL
           value: "http://{{ include "temporal.componentname" (list $ "frontend") }}.{{ $.Release.Namespace }}.svc.cluster.local:7233"
         - name: OIDC_ISSUER
-          value: {{ .Values.frontend-proxy.issuer }}
+          value: {{ .Values.frontendproxy.issuer }}
         - name: LOG_LEVEL
           value: "info"
         - name: ENABLE_CORS

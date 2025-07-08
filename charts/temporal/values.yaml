@@ -16,7 +16,7 @@ serviceAccount:
 additionalAnnotations: {}
 additionalLabels: {}
 
-frontend-proxy:
+frontendproxy:
   enabled: true
   service:
     type: ClusterIP
