@@ -1,0 +1,194 @@
+# Path-Based Routing Configuration for Temporal
+# Serves Temporal under a subpath (e.g., /temporal, /workflows) instead of a dedicated domain
+
+server:
+  config:
+    authorization:
+      jwtKeyProvider:
+        keySourceURIs:
+          - "https://dex.your-domain.com/.well-known/jwks.json"
+        refreshInterval: 1m
+      permissionsClaimName: groups
+      authorizer: default
+      claimMapper: default
+
+  # Path-based routing configuration
+  frontend:
+    service:
+      type: ClusterIP
+      port: 7233
+      httpPort: 7243
+    ingress:
+      enabled: true
+      className: nginx  # or your ingress controller
+      annotations:
+        # Nginx ingress annotations for path-based routing
+        nginx.ingress.kubernetes.io/rewrite-target: /$2
+        nginx.ingress.kubernetes.io/use-regex: "true"
+        # SSL configuration
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        # CORS for path-based routing
+        nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+        nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+        nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+      hosts:
+        - host: your-domain.com
+          paths:
+            - path: /temporal(/|$)(.*)
+              pathType: Prefix
+            # Alternative paths you might want
+            # - path: /workflows(/|$)(.*)
+            #   pathType: Prefix
+            # - path: /temporal-api(/|$)(.*)
+            #   pathType: Prefix
+      tls:
+        - secretName: your-domain-tls
+          hosts:
+            - your-domain.com
+
+web:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: temporalio/ui
+    tag: 2.38.3
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      # Nginx ingress annotations for path-based routing
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+      nginx.ingress.kubernetes.io/use-regex: "true"
+      # SSL configuration
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      # CORS for path-based routing
+      nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+      nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+      nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+      # Web UI specific annotations
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        sub_filter_once off;
+        sub_filter 'href="/' 'href="/temporal/';
+        sub_filter 'src="/' 'src="/temporal/';
+        sub_filter 'url("/' 'url("/temporal/';
+        sub_filter 'url(\'/' 'url(\'/temporal/';
+    hosts:
+      - host: your-domain.com
+        paths:
+          - path: /temporal(/|$)(.*)
+            pathType: Prefix
+          # Alternative: serve UI at /temporal-ui
+          # - path: /temporal-ui(/|$)(.*)
+          #   pathType: Prefix
+    tls:
+      - secretName: your-domain-tls
+        hosts:
+          - your-domain.com
+  
+  # Web UI configuration for path-based routing
+  additionalEnv:
+    # Configure Web UI to work with path-based routing
+    - name: TEMPORAL_UI_PUBLIC_PATH
+      value: "/temporal"
+    - name: TEMPORAL_UI_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_TIMEOUT
+      value: "10000"
+    # Optional: Configure authentication
+    - name: TEMPORAL_AUTH_ENABLED
+      value: "true"
+    - name: TEMPORAL_AUTH_PROVIDER_URL
+      value: "https://dex.your-domain.com"
+    - name: TEMPORAL_AUTH_CLIENT_ID
+      value: "temporal-web-ui"
+    - name: TEMPORAL_AUTH_CALLBACK_URL
+      value: "https://your-domain.com/temporal/auth/sso/callback"
+
+# Example: Alternative configuration for different paths
+# web:
+#   ingress:
+#     hosts:
+#       - host: your-domain.com
+#         paths:
+#           - path: /workflows(/|$)(.*)
+#             pathType: Prefix
+#   additionalEnv:
+#     - name: TEMPORAL_UI_PUBLIC_PATH
+#       value: "/workflows"
+#     - name: TEMPORAL_UI_API_BASE_URL
+#       value: "/workflows"
+
+# Example: Multiple path support
+# web:
+#   ingress:
+#     hosts:
+#       - host: your-domain.com
+#         paths:
+#           - path: /temporal(/|$)(.*)
+#             pathType: Prefix
+#           - path: /workflows(/|$)(.*)
+#             pathType: Prefix
+#           - path: /temporal-ui(/|$)(.*)
+#             pathType: Prefix
+
+# Example: Istio Virtual Service for path-based routing
+# apiVersion: networking.istio.io/v1beta1
+# kind: VirtualService
+# metadata:
+#   name: temporal-path-routing
+# spec:
+#   hosts:
+#   - your-domain.com
+#   gateways:
+#   - temporal-gateway
+#   http:
+#   - match:
+#     - uri:
+#         prefix: /temporal
+#     route:
+#     - destination:
+#         host: temporal-frontend
+#         port:
+#           number: 7233
+#     rewrite:
+#       uri: /
+#   - match:
+#     - uri:
+#         prefix: /temporal-ui
+#     route:
+#     - destination:
+#         host: temporal-web
+#         port:
+#           number: 8080
+#     rewrite:
+#       uri: /
+
+# Example: Traefik configuration for path-based routing
+# web:
+#   ingress:
+#     className: traefik
+#     annotations:
+#       traefik.ingress.kubernetes.io/router.entrypoints: websecure
+#       traefik.ingress.kubernetes.io/router.tls: "true"
+#       traefik.ingress.kubernetes.io/router.middlewares: temporal-stripprefix@kubernetescrd
+#     hosts:
+#       - host: your-domain.com
+#         paths:
+#           - path: /temporal
+#             pathType: Prefix
+# 
+# ---
+# apiVersion: traefik.containo.us/v1alpha1
+# kind: Middleware
+# metadata:
+#   name: temporal-stripprefix
+# spec:
+#   stripPrefix:
+#     prefixes:
+#       - /temporal 

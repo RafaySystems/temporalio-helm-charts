@@ -1,0 +1,68 @@
+# Temporal Configuration without OIDC Authorization
+# Use this configuration to run Temporal without authentication while you set up OIDC
+
+server:
+  config:
+    # OIDC Authorization is disabled
+    # authorization:
+    #   jwtKeyProvider:
+    #     keySourceURIs:
+    #       - "https://dex.your-domain.com/.well-known/jwks.json"
+    #     refreshInterval: 1m
+    #   permissionsClaimName: groups
+    #   authorizer: default
+    #   claimMapper: default
+
+  # Disable ingress since we're using Istio Virtual Service
+  frontend:
+    service:
+      type: ClusterIP
+      port: 7233
+      httpPort: 7243
+    ingress:
+      enabled: false  # Disable ingress, use Istio instead
+
+web:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: temporalio/ui
+    tag: 2.38.3
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: false  # Disable ingress, use Istio instead
+  
+  # Web UI configuration for path-based routing
+  additionalEnv:
+    # Configure Web UI to work with path-based routing
+    - name: TEMPORAL_UI_PUBLIC_PATH
+      value: "/temporal"
+    - name: TEMPORAL_UI_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_TIMEOUT
+      value: "10000"
+    # Authentication is disabled
+    # - name: TEMPORAL_AUTH_ENABLED
+    #   value: "true"
+    # - name: TEMPORAL_AUTH_PROVIDER_URL
+    #   value: "https://dex.your-domain.com"
+    # - name: TEMPORAL_AUTH_CLIENT_ID
+    #   value: "temporal-web-ui"
+    # - name: TEMPORAL_AUTH_CALLBACK_URL
+    #   value: "https://your-domain.com/temporal/auth/sso/callback"
+
+# Note: This configuration allows unauthenticated access to Temporal
+# Only use this for development/testing or in secure environments
+# For production, always enable proper authentication
+
+# To re-enable OIDC later:
+# 1. Deploy a working OIDC provider (Dex, Auth0, etc.)
+# 2. Test the JWKS endpoint: curl https://your-oidc-provider/.well-known/jwks.json
+# 3. Uncomment the authorization section above
+# 4. Update the keySourceURIs with the correct URL
+# 5. Redeploy Temporal with authentication enabled 

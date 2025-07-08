@@ -1,0 +1,78 @@
+# Multi-Cluster OIDC Configuration for Temporal Server
+# Dex and Temporal Server in Cluster A, Workers in Cluster B
+# Uses token exchange for cross-cluster authentication
+
+server:
+  config:
+    authorization:
+      jwtKeyProvider:
+        # Dex JWKS endpoint in the same cluster as Temporal
+        keySourceURIs:
+          - "https://dex.temporal-cluster.svc.cluster.local/.well-known/jwks.json"
+          # External Dex endpoint (if accessible)
+          - "https://dex.your-domain.com/.well-known/jwks.json"
+        refreshInterval: 1m
+      
+      # Dex typically uses 'groups' for permissions
+      permissionsClaimName: groups
+      authorizer: default
+      claimMapper: default
+
+  # Multi-cluster environment variables
+  additionalEnv:
+    - name: TEMPORAL_OIDC_ISSUER
+      value: "https://dex.your-domain.com"
+    - name: TEMPORAL_OIDC_AUDIENCE
+      value: "temporal-multicluster"
+    - name: TEMPORAL_OIDC_CLIENT_ID
+      value: "temporal-server"
+    
+    # Cross-cluster communication settings
+    - name: TEMPORAL_CROSS_CLUSTER_ENABLED
+      value: "true"
+    - name: TEMPORAL_WORKER_CLUSTER_ID
+      value: "worker-cluster"
+
+# Example: Token Exchange Service Configuration
+# This service handles token exchange between clusters
+# server:
+#   additionalVolumes:
+#     - name: token-exchange-certs
+#       secret:
+#         secretName: token-exchange-certificates
+#   additionalVolumeMounts:
+#     - name: token-exchange-certs
+#       mountPath: /etc/temporal/token-exchange/certs
+#       readOnly: true
+#   additionalEnv:
+#     - name: TOKEN_EXCHANGE_ENDPOINT
+#       value: "https://token-exchange.temporal-cluster.svc.cluster.local"
+#     - name: TOKEN_EXCHANGE_CLIENT_ID
+#       value: "temporal-token-exchange"
+#     - name: TOKEN_EXCHANGE_CLIENT_SECRET
+#       valueFrom:
+#         secretKeyRef:
+#           name: token-exchange-secret
+#           key: client_secret
+
+# Example: Cross-cluster service account configuration
+# server:
+#   serviceAccount:
+#     create: true
+#     name: temporal-cross-cluster-sa
+#     extraAnnotations:
+#       # For cross-cluster token exchange
+#       eks.amazonaws.com/role-arn: "arn:aws:iam::your-account:role/temporal-cross-cluster-role"
+#       # For Azure AD cross-cluster
+#       azure.workload.identity/client-id: "your-cross-cluster-client-id"
+#       # For Google Cloud cross-cluster
+#       iam.gke.io/gcp-service-account: "temporal-cross-cluster@your-project.iam.gserviceaccount.com"
+
+# Example: Multi-cluster metrics and monitoring
+# server:
+#   metrics:
+#     tags:
+#       oidc_enabled: "true"
+#       oidc_provider: "dex"
+#       cluster_type: "temporal-server"
+#       cross_cluster: "true" 

@@ -1,0 +1,304 @@
+# Fixed Istio Path-Based Routing Configuration for Temporal
+# Addresses cluster_not_found errors by ensuring proper service discovery
+
+server:
+  config:
+    authorization:
+      jwtKeyProvider:
+        keySourceURIs:
+          - "https://dex.your-domain.com/.well-known/jwks.json"
+        refreshInterval: 1m
+      permissionsClaimName: groups
+      authorizer: default
+      claimMapper: default
+
+  # Disable ingress since we're using Istio Virtual Service
+  frontend:
+    service:
+      type: ClusterIP
+      port: 7233
+      httpPort: 7243
+    ingress:
+      enabled: false  # Disable ingress, use Istio instead
+
+web:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: temporalio/ui
+    tag: 2.38.3
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: false  # Disable ingress, use Istio instead
+  
+  # Web UI configuration for path-based routing
+  additionalEnv:
+    # Configure Web UI to work with path-based routing
+    - name: TEMPORAL_UI_PUBLIC_PATH
+      value: "/temporal"
+    - name: TEMPORAL_UI_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_TIMEOUT
+      value: "10000"
+    # Optional: Configure authentication
+    - name: TEMPORAL_AUTH_ENABLED
+      value: "true"
+    - name: TEMPORAL_AUTH_PROVIDER_URL
+      value: "https://dex.your-domain.com"
+    - name: TEMPORAL_AUTH_CLIENT_ID
+      value: "temporal-web-ui"
+    - name: TEMPORAL_AUTH_CALLBACK_URL
+      value: "https://your-domain.com/temporal/auth/sso/callback"
+
+# Istio Gateway and Virtual Service configurations
+# These should be applied separately after deploying Temporal
+
+---
+# Istio Gateway for external access
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: temporal-gateway
+  namespace: default
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - ops-console.gaap.dev.rafay-edge.net
+    # Redirect HTTP to HTTPS
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: ops-console-tls
+    hosts:
+    - ops-console.gaap.dev.rafay-edge.net
+
+---
+# Istio Virtual Service for path-based routing - FIXED VERSION
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: temporal-path-routing
+  namespace: default
+spec:
+  hosts:
+  - ops-console.gaap.dev.rafay-edge.net
+  gateways:
+  - temporal-gateway
+  http:
+  # Temporal Web UI routes - FIXED: Use exact service names
+  - match:
+    - uri:
+        prefix: /temporal
+    route:
+    - destination:
+        host: temporal-web.default.svc.cluster.local  # Full service name
+        port:
+          number: 8080
+    rewrite:
+      uri: /
+    corsPolicy:
+      allowOrigins:
+      - exact: https://ops-console.gaap.dev.rafay-edge.net
+      allowMethods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+      allowHeaders:
+      - "DNT"
+      - "User-Agent"
+      - "X-Requested-With"
+      - "If-Modified-Since"
+      - "Cache-Control"
+      - "Content-Type"
+      - "Range"
+      - "Authorization"
+  
+  # Temporal API routes - FIXED: Use exact service names
+  - match:
+    - uri:
+        prefix: /temporal/api
+    route:
+    - destination:
+        host: temporal-frontend.default.svc.cluster.local  # Full service name
+        port:
+          number: 7233
+    rewrite:
+      uri: /
+    corsPolicy:
+      allowOrigins:
+      - exact: https://ops-console.gaap.dev.rafay-edge.net
+      allowMethods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+      allowHeaders:
+      - "DNT"
+      - "User-Agent"
+      - "X-Requested-With"
+      - "If-Modified-Since"
+      - "Cache-Control"
+      - "Content-Type"
+      - "Range"
+      - "Authorization"
+
+---
+# Alternative: Simple Virtual Service for debugging
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: temporal-simple
+  namespace: default
+spec:
+  hosts:
+  - ops-console.gaap.dev.rafay-edge.net
+  gateways:
+  - temporal-gateway
+  http:
+  # Simple routing without path rewriting for debugging
+  - match:
+    - uri:
+        prefix: /temporal
+    route:
+    - destination:
+        host: temporal-web.default.svc.cluster.local
+        port:
+          number: 8080
+    # No rewrite for debugging
+    corsPolicy:
+      allowOrigins:
+      - exact: https://ops-console.gaap.dev.rafay-edge.net
+      allowMethods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+      allowHeaders:
+      - "*"
+
+---
+# Service Entry for debugging (if needed)
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: temporal-service-entry
+  namespace: default
+spec:
+  hosts:
+  - temporal-web.default.svc.cluster.local
+  - temporal-frontend.default.svc.cluster.local
+  ports:
+  - number: 8080
+    name: http-web
+    protocol: HTTP
+  - number: 7233
+    name: grpc-frontend
+    protocol: GRPC
+  location: MESH_INTERNAL
+  resolution: DNS
+
+---
+# Destination Rule for load balancing
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: temporal-destination-rule
+  namespace: default
+spec:
+  host: temporal-web.default.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      http:
+        http1MaxPendingRequests: 1024
+        maxRequestsPerConnection: 10
+        maxRetries: 3
+        connectTimeout: 30s
+        tcpKeepalive:
+          time: 7200s
+          interval: 75s
+          probes: 9
+
+---
+# Alternative: Virtual Service with fallback
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: temporal-with-fallback
+  namespace: default
+spec:
+  hosts:
+  - ops-console.gaap.dev.rafay-edge.net
+  gateways:
+  - temporal-gateway
+  http:
+  # Primary route
+  - match:
+    - uri:
+        prefix: /temporal
+    route:
+    - destination:
+        host: temporal-web.default.svc.cluster.local
+        port:
+          number: 8080
+      weight: 100
+    rewrite:
+      uri: /
+    retries:
+      attempts: 3
+      perTryTimeout: 2s
+    timeout: 10s
+    corsPolicy:
+      allowOrigins:
+      - exact: https://ops-console.gaap.dev.rafay-edge.net
+      allowMethods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+      allowHeaders:
+      - "*"
+  
+  # Fallback route for debugging
+  - match:
+    - uri:
+        prefix: /temporal-debug
+    route:
+    - destination:
+        host: temporal-web.default.svc.cluster.local
+        port:
+          number: 8080
+    # No rewrite for debugging
+    corsPolicy:
+      allowOrigins:
+      - exact: https://ops-console.gaap.dev.rafay-edge.net
+      allowMethods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+      allowHeaders:
+      - "*" 

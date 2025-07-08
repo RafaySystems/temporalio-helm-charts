@@ -1,0 +1,94 @@
+# Test OIDC Configuration for Temporal Server
+# Use this configuration to test OIDC setup with a mock provider
+
+server:
+  config:
+    # Enable debug logging for OIDC troubleshooting
+    logLevel: "debug,info"
+    
+    authorization:
+      jwtKeyProvider:
+        # Test JWKS endpoint - replace with your actual provider
+        keySourceURIs:
+          - "https://your-test-oidc-provider/.well-known/jwks.json"
+        refreshInterval: 30s  # Shorter interval for testing
+        
+        # Optional: HTTP client configuration for testing
+        httpClient:
+          timeout: 10s
+          maxIdleConns: 5
+          maxIdleConnsPerHost: 2
+          idleConnTimeout: 30s
+          tlsHandshakeTimeout: 5s
+          expectContinueTimeout: 1s
+      
+      permissionsClaimName: permissions
+      authorizer: default
+      claimMapper: default
+
+  # Test environment variables
+  additionalEnv:
+    - name: TEMPORAL_OIDC_ISSUER
+      value: "https://your-test-oidc-provider"
+    - name: TEMPORAL_OIDC_AUDIENCE
+      value: "temporal-test"
+    - name: TEMPORAL_OIDC_CLIENT_ID
+      value: "test-client-id"
+    
+    # Debug environment variables
+    - name: TEMPORAL_DEBUG_OIDC
+      value: "true"
+    - name: TEMPORAL_LOG_LEVEL
+      value: "debug"
+
+  # Test metrics configuration
+  metrics:
+    tags:
+      oidc_enabled: "true"
+      oidc_provider: "test-provider"
+      environment: "test"
+
+# Test worker configuration
+server:
+  worker:
+    additionalEnv:
+      - name: TEMPORAL_WORKER_TEST_TOKEN
+        value: "test-jwt-token"
+      - name: TEMPORAL_WORKER_DEBUG
+        value: "true"
+
+# Example: Test with mock OIDC provider (like mockoidc)
+# server:
+#   config:
+#     authorization:
+#       jwtKeyProvider:
+#         keySourceURIs:
+#           - "http://localhost:8080/.well-known/jwks.json"
+#         refreshInterval: 10s
+#       permissionsClaimName: permissions
+#       authorizer: default
+#       claimMapper: default
+
+# Example: Test with local Keycloak instance
+# server:
+#   config:
+#     authorization:
+#       jwtKeyProvider:
+#         keySourceURIs:
+#           - "http://localhost:8080/auth/realms/test/protocol/openid-connect/certs"
+#         refreshInterval: 30s
+#       permissionsClaimName: realm_access.roles
+#       authorizer: default
+#       claimMapper: default
+
+# Example: Test with Auth0 sandbox
+# server:
+#   config:
+#     authorization:
+#       jwtKeyProvider:
+#         keySourceURIs:
+#           - "https://your-sandbox.auth0.com/.well-known/jwks.json"
+#         refreshInterval: 1m
+#       permissionsClaimName: permissions
+#       authorizer: default
+#       claimMapper: default 

@@ -1,0 +1,125 @@
+# External Worker OIDC Configuration
+# This configuration enables OIDC for external workers while keeping internal services working
+
+nameOverride: ""
+fullnameOverride: ""
+
+server:
+  additionalEnv:
+    # OIDC Configuration for External Workers
+    - name: TEMPORAL_OIDC_ENABLED
+      value: "true"
+    - name: TEMPORAL_OIDC_ISSUER
+      value: "https://console.gaap.dev.rafay-edge.net/dex"
+    - name: TEMPORAL_OIDC_AUDIENCE
+      value: "temporal-server"
+    - name: TEMPORAL_OIDC_CLIENT_ID
+      value: "temporal-server"
+    
+    # Authorization Configuration
+    - name: TEMPORAL_AUTHORIZATION_ENABLED
+      value: "true"
+    
+    # Internal Service Configuration - Keep these disabled
+    - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+      value: "false"
+    - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+      value: "false"
+    - name: TEMPORAL_ALLOW_INTERNAL_SERVICE_COMMUNICATION
+      value: "true"
+    
+    # Additional internal service flags
+    - name: TEMPORAL_INTERNAL_SERVICE
+      value: "true"
+    - name: TEMPORAL_SCANNER_AUTH_ENABLED
+      value: "false"
+
+  config:
+    # Enable authorization for external clients
+    authorization:
+      enabled: true
+      jwtKeyProvider:
+        keySourceURIs:
+          - https://console.gaap.dev.rafay-edge.net/dex/keys
+        refreshInterval: 1m
+      permissionsClaimName: groups
+      authorizer: default
+      claimMapper: default
+
+  # Frontend service - Enable OIDC for external clients
+  frontend:
+    additionalEnv:
+      - name: TEMPORAL_OIDC_ENABLED
+        value: "true"
+      - name: TEMPORAL_OIDC_ISSUER
+        value: "https://console.gaap.dev.rafay-edge.net/dex"
+      - name: TEMPORAL_OIDC_AUDIENCE
+        value: "temporal-server"
+      - name: TEMPORAL_OIDC_CLIENT_ID
+        value: "temporal-server"
+      - name: TEMPORAL_AUTHORIZATION_ENABLED
+        value: "true"
+      # Keep internal service communication working
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_INTERNAL_SERVICE
+        value: "true"
+
+  # Internal services - Keep authentication disabled
+  history:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_INTERNAL_SERVICE
+        value: "true"
+
+  matching:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_INTERNAL_SERVICE
+        value: "true"
+
+  worker:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_WORKER_SKIP_AUTH
+        value: "true"
+      - name: TEMPORAL_ALLOW_INTERNAL_SERVICE_COMMUNICATION
+        value: "true"
+      - name: TEMPORAL_SCANNER_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SERVICE_TYPE
+        value: "worker"
+      - name: TEMPORAL_AUTHORIZATION_ENABLED
+        value: "false"
+      - name: TEMPORAL_INTERNAL_SERVICE
+        value: "true"
+      - name: TEMPORAL_WORKER_SKIP_AUTHENTICATION
+        value: "true"
+      - name: TEMPORAL_WORKER_INTERNAL_SERVICE
+        value: "true"
+      - name: TEMPORAL_OIDC_ENABLED
+        value: "false"
+
+# Web UI - Keep authentication disabled for now
+web:
+  additionalEnv:
+    - name: TEMPORAL_UI_PUBLIC_PATH
+      value: "/temporal"
+    - name: TEMPORAL_UI_API_BASE_URL
+      value: "/temporalui"
+    - name: TEMPORAL_UI_SERVER_API_BASE_URL
+      value: "/temporalui"
+    - name: TEMPORAL_UI_SERVER_API_TIMEOUT
+      value: "10000"
+    # Disable authentication for web UI
+    - name: TEMPORAL_AUTH_ENABLED
+      value: "false" 

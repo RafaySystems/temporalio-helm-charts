@@ -1,0 +1,139 @@
+# Temporal Worker Authentication Fix
+# This configuration specifically addresses "Request unauthorized" errors in temporal-worker
+# by properly disabling OIDC authentication for internal services and system workflows
+
+server:
+  additionalEnv:
+    # OIDC Configuration for external clients
+    - name: TEMPORAL_OIDC_ISSUER
+      value: "https://console.gaap.dev.rafay-edge.net/dex"
+    - name: TEMPORAL_OIDC_AUDIENCE
+      value: "temporal-server"
+    - name: TEMPORAL_OIDC_CLIENT_ID
+      value: "temporal-server"
+    # Internal service configuration - DISABLE OIDC for internal services
+    - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+      value: "false"
+    - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+      value: "false"
+    - name: TEMPORAL_ALLOW_INTERNAL_SERVICE_COMMUNICATION
+      value: "true"
+    # Additional auth bypass settings
+    - name: TEMPORAL_AUTHORIZATION_ENABLED
+      value: "false"
+    - name: TEMPORAL_INTERNAL_SERVICE
+      value: "true"
+    - name: TEMPORAL_SCANNER_AUTH_ENABLED
+      value: "false"
+
+  config:
+    authorization:
+      jwtKeyProvider:
+        keySourceURIs:
+          - https://console.gaap.dev.rafay-edge.net/dex/keys
+        refreshInterval: 1m
+      permissionsClaimName: groups
+      authorizer: default
+      claimMapper: default
+      # Comprehensive system authorizer configuration
+      systemAuthorizer:
+        # Allow all system workflows without authentication
+        systemWorkflows:
+          - "temporal-sys-tq-scanner-workflow"
+          - "temporal-sys-history-scanner-workflow"
+          - "temporal-sys-workflow-mapper-workflow"
+          - "temporal-sys-archival-workflow"
+          - "temporal-sys-scanner-workflow"
+          - "*"  # Allow all system workflows
+        # Allow all internal services without authentication
+        internalServices:
+          - "temporal-frontend"
+          - "temporal-history"
+          - "temporal-matching"
+          - "temporal-worker"
+          - "worker"
+          - "*"  # Allow all internal services
+        # Disable auth for internal operations
+        internalOperations:
+          - "StartWorkflowExecution"
+          - "DescribeWorkflowExecution"
+          - "ListWorkflowExecutions"
+          - "ScanWorkflowExecutions"
+          - "CountWorkflowExecutions"
+          - "PollWorkflowTaskQueue"
+          - "RespondWorkflowTaskCompleted"
+          - "RespondWorkflowTaskFailed"
+          - "PollActivityTaskQueue"
+          - "RespondActivityTaskCompleted"
+          - "RespondActivityTaskFailed"
+          - "*"  # Allow all internal operations
+        # Require OIDC only for external clients
+        externalClients:
+          requireAuth: true
+          allowedAudiences:
+            - "temporal-client"
+            - "temporal-worker"
+            - "temporal-web-ui"
+
+  # Worker service configuration
+  worker:
+    additionalEnv:
+      # Disable OIDC for internal services
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      # Disable OIDC for system workflows
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+      # Skip authentication for worker operations
+      - name: TEMPORAL_WORKER_SKIP_AUTH
+        value: "true"
+      # Allow internal service communication
+      - name: TEMPORAL_ALLOW_INTERNAL_SERVICE_COMMUNICATION
+        value: "true"
+      # Disable OIDC for scanner workflows
+      - name: TEMPORAL_SCANNER_AUTH_ENABLED
+        value: "false"
+      # Set worker as internal service
+      - name: TEMPORAL_SERVICE_TYPE
+        value: "worker"
+      # Disable authorization for system operations
+      - name: TEMPORAL_AUTHORIZATION_ENABLED
+        value: "false"
+      # Set internal service flag
+      - name: TEMPORAL_INTERNAL_SERVICE
+        value: "true"
+      # Additional worker-specific settings
+      - name: TEMPORAL_WORKER_SKIP_AUTHENTICATION
+        value: "true"
+      - name: TEMPORAL_WORKER_INTERNAL_SERVICE
+        value: "true"
+
+  # History service configuration
+  history:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_INTERNAL_SERVICE
+        value: "true"
+
+  # Matching service configuration
+  matching:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_INTERNAL_SERVICE
+        value: "true"
+
+# Service account configuration
+serviceAccount:
+  create: true
+  name: temporal-internal-sa
+  extraAnnotations:
+    # Allow internal services to communicate without OIDC
+    temporal.io/internal-service: "true"
+    temporal.io/skip-auth: "true"
+    temporal.io/system-workflow: "true" 

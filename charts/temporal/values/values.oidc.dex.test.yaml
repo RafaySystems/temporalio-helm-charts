@@ -1,0 +1,101 @@
+# Test Dex OIDC Configuration for Temporal Server
+# Use this configuration to test Dex OIDC setup
+
+server:
+  config:
+    # Enable debug logging for Dex OIDC troubleshooting
+    logLevel: "debug,info"
+    
+    authorization:
+      jwtKeyProvider:
+        # Test Dex JWKS endpoint - replace with your actual Dex server
+        keySourceURIs:
+          - "https://dex.your-domain.com/.well-known/jwks.json"
+          # For local Dex testing
+          # - "http://localhost:5556/.well-known/jwks.json"
+        refreshInterval: 30s  # Shorter interval for testing
+        
+        # Optional: HTTP client configuration for testing
+        httpClient:
+          timeout: 10s
+          maxIdleConns: 5
+          maxIdleConnsPerHost: 2
+          idleConnTimeout: 30s
+          tlsHandshakeTimeout: 5s
+          expectContinueTimeout: 1s
+      
+      # Dex typically uses 'groups' for permissions
+      permissionsClaimName: groups
+      authorizer: default
+      claimMapper: default
+
+  # Test environment variables for Dex
+  additionalEnv:
+    - name: TEMPORAL_OIDC_ISSUER
+      value: "https://dex.your-domain.com"
+    - name: TEMPORAL_OIDC_AUDIENCE
+      value: "temporal-client"
+    - name: TEMPORAL_OIDC_CLIENT_ID
+      value: "temporal-client"
+    
+    # Debug environment variables
+    - name: TEMPORAL_DEBUG_OIDC
+      value: "true"
+    - name: TEMPORAL_LOG_LEVEL
+      value: "debug"
+
+  # Test metrics configuration
+  metrics:
+    tags:
+      oidc_enabled: "true"
+      oidc_provider: "dex"
+      environment: "test"
+
+# Test worker configuration with Dex
+server:
+  worker:
+    additionalEnv:
+      - name: TEMPORAL_WORKER_DEX_TOKEN
+        value: "test-dex-jwt-token"
+      - name: TEMPORAL_WORKER_DEBUG
+        value: "true"
+
+# Example: Test with local Dex instance
+# server:
+#   config:
+#     authorization:
+#       jwtKeyProvider:
+#         keySourceURIs:
+#           - "http://localhost:5556/.well-known/jwks.json"
+#         refreshInterval: 10s
+#       permissionsClaimName: groups
+#       authorizer: default
+#       claimMapper: default
+
+# Example: Dex with Kubernetes service account testing
+# server:
+#   serviceAccount:
+#     create: true
+#     name: temporal-dex-test-sa
+#     extraAnnotations:
+#       dex.coreos.com/automount-service-account-token: "true"
+#       dex.coreos.com/oauth2-redirecturi: "http://localhost:5556/callback"
+
+# Example: Dex configuration for local development
+# server:
+#   config:
+#     authorization:
+#       jwtKeyProvider:
+#         keySourceURIs:
+#           - "http://dex.localhost:5556/.well-known/jwks.json"
+#         refreshInterval: 30s
+#       permissionsClaimName: groups
+#       authorizer: default
+#       claimMapper: default
+#   additionalEnv:
+#     - name: TEMPORAL_OIDC_ISSUER
+#       value: "http://dex.localhost:5556"
+#     - name: TEMPORAL_OIDC_AUDIENCE
+#       value: "temporal-client"
+#     - name: TEMPORAL_OIDC_CLIENT_ID
+#       value: "temporal-client" 

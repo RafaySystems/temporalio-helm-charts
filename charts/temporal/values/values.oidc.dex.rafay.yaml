@@ -1,0 +1,123 @@
+# Dex OIDC Configuration for Temporal Server - Rafay Setup
+# Uses the correct JWKS endpoint for Rafay's Dex server
+
+server:
+  config:
+    authorization:
+      jwtKeyProvider:
+        # Rafay Dex JWKS endpoint - uses /dex/keys instead of /.well-known/jwks.json
+        keySourceURIs:
+          - "https://console.gaap.dev.rafay-edge.net/dex/keys"
+        refreshInterval: 1m
+      
+      # Dex typically uses 'groups' or custom claim names for permissions
+      permissionsClaimName: groups
+      authorizer: default
+      claimMapper: default
+
+  # Rafay Dex-specific environment variables
+  additionalEnv:
+    - name: TEMPORAL_OIDC_ISSUER
+      value: "https://console.gaap.dev.rafay-edge.net/dex"
+    - name: TEMPORAL_OIDC_AUDIENCE
+      value: "temporal-client"
+    - name: TEMPORAL_OIDC_CLIENT_ID
+      value: "temporal-client"
+
+  # Disable ingress since we're using Istio Virtual Service
+  frontend:
+    service:
+      type: ClusterIP
+      port: 7233
+      httpPort: 7243
+    ingress:
+      enabled: false  # Disable ingress, use Istio instead
+
+web:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: temporalio/ui
+    tag: 2.38.3
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: false  # Disable ingress, use Istio instead
+  
+  # Web UI configuration for path-based routing
+  additionalEnv:
+    # Configure Web UI to work with path-based routing
+    - name: TEMPORAL_UI_PUBLIC_PATH
+      value: "/temporal"
+    - name: TEMPORAL_UI_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_TIMEOUT
+      value: "10000"
+    # Optional: Configure authentication with Rafay Dex
+    - name: TEMPORAL_AUTH_ENABLED
+      value: "true"
+    - name: TEMPORAL_AUTH_PROVIDER_URL
+      value: "https://console.gaap.dev.rafay-edge.net/dex"
+    - name: TEMPORAL_AUTH_CLIENT_ID
+      value: "temporal-web-ui"
+    - name: TEMPORAL_AUTH_CALLBACK_URL
+      value: "https://ops-console.gaap.dev.rafay-edge.net/temporal/auth/sso/callback"
+
+# Example: Worker configuration with Rafay Dex tokens
+# server:
+#   worker:
+#     additionalEnv:
+#       - name: TEMPORAL_WORKER_DEX_TOKEN
+#         valueFrom:
+#           secretKeyRef:
+#             name: worker-dex-secret
+#             key: access_token
+#       - name: TEMPORAL_WORKER_DEX_REFRESH_TOKEN
+#         valueFrom:
+#           secretKeyRef:
+#             name: worker-dex-secret
+#             key: refresh_token
+
+# Example: Rafay Dex with Kubernetes service account integration
+# server:
+#   serviceAccount:
+#     create: true
+#     name: temporal-dex-sa
+#     extraAnnotations:
+#       # For Dex with Kubernetes connector
+#       dex.coreos.com/automount-service-account-token: "true"
+#       dex.coreos.com/oauth2-redirecturi: "https://console.gaap.dev.rafay-edge.net/dex/callback"
+
+# Example: Rafay Dex configuration for different environments
+# server:
+#   config:
+#     namespaces:
+#       create: true
+#       namespace:
+#         - name: default
+#           retention: 3d
+#           # Dex configuration for default namespace
+#           authorization:
+#             jwtKeyProvider:
+#               keySourceURIs:
+#                 - "https://console.gaap.dev.rafay-edge.net/dex/keys"
+#             permissionsClaimName: groups
+#             authorizer: default
+#             claimMapper: default
+#         - name: production
+#           retention: 7d
+#           # Dex configuration for production namespace
+#           authorization:
+#             jwtKeyProvider:
+#               keySourceURIs:
+#                 - "https://console.gaap.dev.rafay-edge.net/dex/keys"
+#             permissionsClaimName: groups
+#             authorizer: default
+#             claimMapper: default
+
+# Note: This configuration uses the correct JWKS endpoint for Rafay's Dex server
+# The JWKS is available at /dex/keys instead of the standard /.well-known/jwks.json 

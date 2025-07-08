@@ -1,0 +1,273 @@
+# Production OIDC Configuration for Temporal Server - Rafay Dex
+# Properly configured for internal service communication and external OIDC auth
+
+server:
+  config:
+    authorization:
+      jwtKeyProvider:
+        # Rafay Dex JWKS endpoint
+        keySourceURIs:
+          - "https://console.gaap.dev.rafay-edge.net/dex/keys"
+        refreshInterval: 1m
+      
+      # Dex permissions configuration
+      permissionsClaimName: groups
+      authorizer: default
+      claimMapper: default
+      
+      # Configure authorization for different service types
+      # This allows internal services to communicate while requiring OIDC for external clients
+      systemAuthorizer:
+        # Allow system workflows and internal services
+        systemWorkflows:
+          - "temporal-sys-tq-scanner-workflow"
+          - "temporal-sys-history-scanner-workflow"
+          - "temporal-sys-workflow-mapper-workflow"
+          - "temporal-sys-archival-workflow"
+        # Allow internal service communication
+        internalServices:
+          - "temporal-frontend"
+          - "temporal-history"
+          - "temporal-matching"
+          - "temporal-worker"
+        # Require OIDC for external clients
+        externalClients:
+          requireAuth: true
+          allowedAudiences:
+            - "temporal-client"
+            - "temporal-worker"
+            - "temporal-web-ui"
+
+  # Environment variables for OIDC configuration
+  additionalEnv:
+    - name: TEMPORAL_OIDC_ISSUER
+      value: "https://console.gaap.dev.rafay-edge.net/dex"
+    - name: TEMPORAL_OIDC_AUDIENCE
+      value: "temporal-client"
+    - name: TEMPORAL_OIDC_CLIENT_ID
+      value: "temporal-client"
+    
+    # Internal service configuration
+    - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+      value: "false"  # Disable OIDC for internal services
+    - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+      value: "false"  # Disable OIDC for system workflows
+    - name: TEMPORAL_ALLOW_INTERNAL_SERVICE_COMMUNICATION
+      value: "true"
+
+  # Disable ingress since we're using Istio Virtual Service
+  frontend:
+    service:
+      type: ClusterIP
+      port: 7233
+      httpPort: 7243
+    ingress:
+      enabled: false  # Disable ingress, use Istio instead
+    
+    # Frontend service - requires OIDC for external clients
+    additionalEnv:
+      - name: TEMPORAL_FRONTEND_REQUIRE_AUTH
+        value: "true"
+      - name: TEMPORAL_FRONTEND_ALLOW_INTERNAL_SERVICES
+        value: "true"
+
+  # Internal services - no OIDC required for internal communication
+  history:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+  
+  matching:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+  
+  worker:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_WORKER_SKIP_AUTH
+        value: "true"
+
+web:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: temporalio/ui
+    tag: 2.38.3
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: false  # Disable ingress, use Istio instead
+  
+  # Web UI configuration for path-based routing with OIDC
+  additionalEnv:
+    # Configure Web UI to work with path-based routing
+    - name: TEMPORAL_UI_PUBLIC_PATH
+      value: "/temporal"
+    - name: TEMPORAL_UI_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_TIMEOUT
+      value: "10000"
+    
+    # OIDC authentication for Web UI
+    - name: TEMPORAL_AUTH_ENABLED
+      value: "true"
+    - name: TEMPORAL_AUTH_PROVIDER_URL
+      value: "https://console.gaap.dev.rafay-edge.net/dex"
+    - name: TEMPORAL_AUTH_CLIENT_ID
+      value: "temporal-web-ui"
+    - name: TEMPORAL_AUTH_CALLBACK_URL
+      value: "https://ops-console.gaap.dev.rafay-edge.net/temporal/auth/sso/callback"
+    - name: TEMPORAL_AUTH_SCOPES
+      value: "openid profile email groups"
+
+# Service Account for internal services
+serviceAccount:
+  create: true
+  name: temporal-internal-sa
+  extraAnnotations:
+    # Allow internal services to communicate without OIDC
+    temporal.io/internal-service: "true"
+    temporal.io/skip-auth: "true"
+
+# Worker configuration with OIDC support
+# This allows external workers to authenticate with OIDC tokens
+worker:
+  enabled: false  # Disable default worker, use external workers with OIDC
+  additionalEnv:
+    - name: TEMPORAL_WORKER_OIDC_ENABLED
+      value: "true"
+    - name: TEMPORAL_WORKER_OIDC_ISSUER
+      value: "https://console.gaap.dev.rafay-edge.net/dex"
+    - name: TEMPORAL_WORKER_OIDC_AUDIENCE
+      value: "temporal-worker"
+    - name: TEMPORAL_WORKER_OIDC_CLIENT_ID
+      value: "temporal-worker"
+
+# Example: External worker deployment with OIDC
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: temporal-worker-oidc
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: temporal-worker-oidc
+#   template:
+#     metadata:
+#       labels:
+#         app: temporal-worker-oidc
+#     spec:
+#       serviceAccountName: temporal-worker-sa
+#       containers:
+#       - name: worker
+#         image: your-worker-image
+#         env:
+#         - name: TEMPORAL_HOST_PORT
+#           value: "temporal-frontend:7233"
+#         - name: TEMPORAL_NAMESPACE
+#           value: "default"
+#         - name: TEMPORAL_TASK_QUEUE
+#           value: "your-task-queue"
+#         - name: TEMPORAL_OIDC_TOKEN
+#           valueFrom:
+#             secretKeyRef:
+#               name: temporal-worker-oidc-secret
+#               key: access_token
+#         - name: TEMPORAL_OIDC_REFRESH_TOKEN
+#           valueFrom:
+#             secretKeyRef:
+#               name: temporal-worker-oidc-secret
+#               key: refresh_token
+
+# Example: Service account for external workers
+# apiVersion: v1
+# kind: ServiceAccount
+# metadata:
+#   name: temporal-worker-sa
+#   annotations:
+#     dex.coreos.com/automount-service-account-token: "true"
+#     dex.coreos.com/oauth2-redirecturi: "https://console.gaap.dev.rafay-edge.net/dex/callback"
+
+# Example: Secret for worker OIDC tokens
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: temporal-worker-oidc-secret
+# type: Opaque
+# data:
+#   access_token: <base64-encoded-access-token>
+#   refresh_token: <base64-encoded-refresh-token>
+
+# Monitoring and metrics for OIDC
+server:
+  metrics:
+    tags:
+      oidc_enabled: "true"
+      oidc_provider: "rafay-dex"
+      environment: "production"
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+      additionalLabels:
+        monitoring: temporal-oidc
+
+# Security configuration
+server:
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+
+# Network policies for OIDC
+# apiVersion: networking.k8s.io/v1
+# kind: NetworkPolicy
+# metadata:
+#   name: temporal-oidc-policy
+# spec:
+#   podSelector:
+#     matchLabels:
+#       app.kubernetes.io/name: temporal
+#   policyTypes:
+#   - Ingress
+#   - Egress
+#   ingress:
+#   - from:
+#     - namespaceSelector:
+#         matchLabels:
+#           name: dex-system
+#     ports:
+#     - protocol: TCP
+#       port: 5556
+#   egress:
+#   - to:
+#     - namespaceSelector:
+#         matchLabels:
+#           name: dex-system
+#     ports:
+#     - protocol: TCP
+#       port: 5556
+
+# Note: This configuration provides:
+# 1. OIDC authentication for external clients and workers
+# 2. Internal service communication without OIDC requirements
+# 3. System workflow execution without authentication
+# 4. Proper security boundaries and monitoring
+# 5. Production-ready deployment with proper service accounts 

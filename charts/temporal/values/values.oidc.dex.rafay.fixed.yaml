@@ -1,0 +1,138 @@
+# Dex OIDC Configuration for Temporal Server - Rafay Setup (Fixed)
+# Handles internal service authentication properly
+
+server:
+  config:
+    authorization:
+      jwtKeyProvider:
+        # Rafay Dex JWKS endpoint - uses /dex/keys instead of /.well-known/jwks.json
+        keySourceURIs:
+          - "https://console.gaap.dev.rafay-edge.net/dex/keys"
+        refreshInterval: 1m
+      
+      # Dex typically uses 'groups' or custom claim names for permissions
+      permissionsClaimName: groups
+      authorizer: default
+      claimMapper: default
+
+  # Rafay Dex-specific environment variables
+  additionalEnv:
+    - name: TEMPORAL_OIDC_ISSUER
+      value: "https://console.gaap.dev.rafay-edge.net/dex"
+    - name: TEMPORAL_OIDC_AUDIENCE
+      value: "temporal-client"
+    - name: TEMPORAL_OIDC_CLIENT_ID
+      value: "temporal-client"
+    
+    # Internal service authentication - allow internal services to communicate
+    - name: TEMPORAL_INTERNAL_AUTH_ENABLED
+      value: "false"  # Disable internal auth to allow service-to-service communication
+    - name: TEMPORAL_SKIP_AUTH_FOR_INTERNAL_SERVICES
+      value: "true"
+    - name: TEMPORAL_ALLOW_INTERNAL_SERVICE_AUTH
+      value: "true"
+
+  # Disable ingress since we're using Istio Virtual Service
+  frontend:
+    service:
+      type: ClusterIP
+      port: 7233
+      httpPort: 7243
+    ingress:
+      enabled: false  # Disable ingress, use Istio instead
+
+  # Configure internal services to work with OIDC
+  history:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SKIP_AUTH_FOR_INTERNAL_SERVICES
+        value: "true"
+  
+  matching:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SKIP_AUTH_FOR_INTERNAL_SERVICES
+        value: "true"
+  
+  worker:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SKIP_AUTH_FOR_INTERNAL_SERVICES
+        value: "true"
+      - name: TEMPORAL_WORKER_SKIP_AUTH
+        value: "true"
+
+web:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: temporalio/ui
+    tag: 2.38.3
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: false  # Disable ingress, use Istio instead
+  
+  # Web UI configuration for path-based routing
+  additionalEnv:
+    # Configure Web UI to work with path-based routing
+    - name: TEMPORAL_UI_PUBLIC_PATH
+      value: "/temporal"
+    - name: TEMPORAL_UI_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_TIMEOUT
+      value: "10000"
+    # Optional: Configure authentication with Rafay Dex
+    - name: TEMPORAL_AUTH_ENABLED
+      value: "true"
+    - name: TEMPORAL_AUTH_PROVIDER_URL
+      value: "https://console.gaap.dev.rafay-edge.net/dex"
+    - name: TEMPORAL_AUTH_CLIENT_ID
+      value: "temporal-web-ui"
+    - name: TEMPORAL_AUTH_CALLBACK_URL
+      value: "https://ops-console.gaap.dev.rafay-edge.net/temporal/auth/sso/callback"
+
+# Alternative: Use a more permissive authorization configuration
+# This allows internal services to communicate while still requiring auth for external clients
+server:
+  config:
+    authorization:
+      jwtKeyProvider:
+        keySourceURIs:
+          - "https://console.gaap.dev.rafay-edge.net/dex/keys"
+        refreshInterval: 1m
+      
+      # Use a more permissive claim mapper for internal services
+      permissionsClaimName: groups
+      authorizer: default
+      claimMapper: default
+      
+      # Optional: Configure internal service bypass
+      # This allows internal services to communicate without full OIDC auth
+      # internalServiceAuth:
+      #   enabled: false
+      #   skipAuthForInternalServices: true
+
+# Note: If the above doesn't work, you may need to temporarily disable OIDC
+# for internal services while keeping it for external clients
+# server:
+#   config:
+#     authorization:
+#       # Only enable OIDC for frontend service
+#       # Internal services will use default auth
+#       jwtKeyProvider:
+#         keySourceURIs:
+#           - "https://console.gaap.dev.rafay-edge.net/dex/keys"
+#         refreshInterval: 1m
+#       permissionsClaimName: groups
+#       authorizer: default
+#       claimMapper: default
+#       # Disable for internal services
+#       disableForInternalServices: true 

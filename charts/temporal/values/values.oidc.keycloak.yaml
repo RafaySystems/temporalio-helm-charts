@@ -1,0 +1,66 @@
+# Keycloak OIDC Configuration for Temporal Server
+# Replace the placeholder values with your actual Keycloak configuration
+
+server:
+  config:
+    authorization:
+      jwtKeyProvider:
+        # Keycloak JWKS endpoint - replace with your Keycloak server and realm
+        keySourceURIs:
+          - "https://your-keycloak-server/auth/realms/your-realm/protocol/openid-connect/certs"
+        refreshInterval: 1m
+      
+      # Keycloak typically uses 'realm_access.roles' or custom claim names
+      permissionsClaimName: realm_access.roles
+      authorizer: default
+      claimMapper: default
+
+  # Keycloak-specific environment variables
+  additionalEnv:
+    - name: TEMPORAL_OIDC_ISSUER
+      value: "https://your-keycloak-server/auth/realms/your-realm"
+    - name: TEMPORAL_OIDC_AUDIENCE
+      value: "temporal-client"
+    - name: TEMPORAL_OIDC_CLIENT_ID
+      value: "your-keycloak-client-id"
+
+# Example: Mount Keycloak certificates
+# server:
+#   additionalVolumes:
+#     - name: keycloak-certs
+#       secret:
+#         secretName: keycloak-certificates
+#   additionalVolumeMounts:
+#     - name: keycloak-certs
+#       mountPath: /etc/temporal/keycloak/certs
+#       readOnly: true
+
+# Example: Worker configuration with Keycloak tokens
+# server:
+#   worker:
+#     additionalEnv:
+#       - name: TEMPORAL_WORKER_KEYCLOAK_TOKEN
+#         valueFrom:
+#           secretKeyRef:
+#             name: worker-keycloak-secret
+#             key: access_token
+#       - name: TEMPORAL_WORKER_KEYCLOAK_REFRESH_TOKEN
+#         valueFrom:
+#           secretKeyRef:
+#             name: worker-keycloak-secret
+#             key: refresh_token
+
+# Example: Keycloak Admin API integration
+# server:
+#   additionalEnv:
+#     - name: KEYCLOAK_URL
+#       value: "https://your-keycloak-server/auth"
+#     - name: KEYCLOAK_REALM
+#       value: "your-realm"
+#     - name: KEYCLOAK_CLIENT_ID
+#       value: "admin-cli"
+#     - name: KEYCLOAK_CLIENT_SECRET
+#       valueFrom:
+#         secretKeyRef:
+#           name: keycloak-admin-secret
+#           key: client_secret" 

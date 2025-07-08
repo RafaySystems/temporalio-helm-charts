@@ -1,0 +1,119 @@
+# Worker Cluster OIDC Configuration
+# Workers in Cluster B connecting to Temporal Server in Cluster A
+# Uses token exchange and cross-cluster authentication
+
+# Note: This is not a complete Temporal server configuration
+# This file shows the worker-side configuration needed for cross-cluster OIDC
+
+# Worker Application Configuration (not Temporal server)
+# This would be used in your worker application deployment
+
+workerConfig:
+  # Temporal server connection details (in the other cluster)
+  temporal:
+    serverAddress: "temporal-frontend.temporal-cluster.svc.cluster.local:7233"
+    # Or external endpoint
+    # serverAddress: "temporal.your-domain.com:7233"
+    
+    # OIDC configuration for worker authentication
+    oidc:
+      issuer: "https://dex.your-domain.com"
+      audience: "temporal-multicluster"
+      clientId: "temporal-worker"
+      
+      # Token exchange configuration
+      tokenExchange:
+        enabled: true
+        endpoint: "https://token-exchange.temporal-cluster.svc.cluster.local"
+        clientId: "temporal-worker-token-exchange"
+        clientSecret:
+          secretName: "worker-token-exchange-secret"
+          secretKey: "client_secret"
+      
+      # Worker-specific claims
+      claims:
+        permissionsClaimName: "groups"
+        workerIdClaimName: "sub"
+        clusterIdClaimName: "cluster_id"
+
+# Example: Worker deployment with OIDC
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: temporal-worker
+# spec:
+#   template:
+#     spec:
+#       serviceAccountName: temporal-worker-sa
+#       containers:
+#       - name: worker
+#         image: your-worker-image
+#         env:
+#         - name: TEMPORAL_SERVER_ADDRESS
+#           value: "temporal-frontend.temporal-cluster.svc.cluster.local:7233"
+#         - name: TEMPORAL_OIDC_ISSUER
+#           value: "https://dex.your-domain.com"
+#         - name: TEMPORAL_OIDC_AUDIENCE
+#           value: "temporal-multicluster"
+#         - name: TEMPORAL_OIDC_CLIENT_ID
+#           value: "temporal-worker"
+#         - name: TOKEN_EXCHANGE_ENDPOINT
+#           value: "https://token-exchange.temporal-cluster.svc.cluster.local"
+#         - name: TOKEN_EXCHANGE_CLIENT_ID
+#           value: "temporal-worker-token-exchange"
+#         - name: TOKEN_EXCHANGE_CLIENT_SECRET
+#           valueFrom:
+#             secretKeyRef:
+#               name: worker-token-exchange-secret
+#               key: client_secret
+#         - name: WORKER_CLUSTER_ID
+#           value: "worker-cluster"
+
+# Example: Service account for worker cluster
+# apiVersion: v1
+# kind: ServiceAccount
+# metadata:
+#   name: temporal-worker-sa
+#   annotations:
+#     # For cross-cluster token exchange
+#     eks.amazonaws.com/role-arn: "arn:aws:iam::your-account:role/temporal-worker-role"
+#     # For Azure AD cross-cluster
+#     azure.workload.identity/client-id: "your-worker-client-id"
+#     # For Google Cloud cross-cluster
+#     iam.gke.io/gcp-service-account: "temporal-worker@your-project.iam.gserviceaccount.com"
+
+# Example: Token exchange secret
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: worker-token-exchange-secret
+# type: Opaque
+# data:
+#   client_secret: <base64-encoded-secret>
+
+# Example: Cross-cluster network policies
+# apiVersion: networking.k8s.io/v1
+# kind: NetworkPolicy
+# metadata:
+#   name: temporal-worker-egress
+# spec:
+#   podSelector:
+#     matchLabels:
+#       app: temporal-worker
+#   policyTypes:
+#   - Egress
+#   egress:
+#   - to:
+#     - namespaceSelector:
+#         matchLabels:
+#           name: temporal-cluster
+#     ports:
+#     - protocol: TCP
+#       port: 7233
+#   - to:
+#     - namespaceSelector:
+#         matchLabels:
+#           name: dex-system
+#     ports:
+#     - protocol: TCP
+#       port: 443 

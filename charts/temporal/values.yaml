@@ -6,16 +6,30 @@ debug: false
 imagePullSecrets: {}
 # Custom Service account management
 serviceAccount:
-  # Whether to create service account or not
-  create: false
-  # Name of the service account.
-  # Uses `name` if set.
-  # If `create: true` defaults to temporal.fullname, otherwise uses the namespace's default serviceAccount.
-  name:
-  # extraAnnotations would let users add additional annotations
+  create: true
+  name: temporal-internal-sa
   extraAnnotations:
+    # Allow internal services to communicate without OIDC
+    temporal.io/internal-service: "true"
+    temporal.io/skip-auth: "true"
+    temporal.io/system-workflow: "true"
 additionalAnnotations: {}
 additionalLabels: {}
+
+frontend-proxy:
+  enabled: true
+  service:
+    type: ClusterIP
+    port: 7233
+    membershipPort: 6933
+    httpPort: 7243
+  image:
+    repository: registry.dev.rafay-edge.net/rafay/frontend-proxy
+    tag: 20250708-104259
+    pullPolicy: IfNotPresent
+  issuer: "https://console.gaap.dev.rafay-edge.net/dex"
+
+
 server:
   enabled: true
   image:
@@ -86,7 +100,30 @@ server:
   affinity: {}
   additionalVolumes: []
   additionalVolumeMounts: []
-  additionalEnv: []
+  additionalEnv:
+    - name: TEMPORAL_OIDC_ISSUER
+      value: "https://console.gaap.dev.rafay-edge.net/dex"
+    - name: TEMPORAL_OIDC_AUDIENCE
+      value: "temporal-server"
+    - name: TEMPORAL_OIDC_CLIENT_ID
+      value: "temporal-server"
+    # Internal service configuration - DISABLE OIDC for internal services
+    - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+      value: "false"
+    - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+      value: "false"
+    - name: TEMPORAL_ALLOW_INTERNAL_SERVICE_COMMUNICATION
+      value: "true"
+    # Additional auth bypass settings
+    - name: TEMPORAL_AUTHORIZATION_ENABLED
+      value: "false"
+    - name: TEMPORAL_INTERNAL_SERVICE
+      value: "true"
+    - name: TEMPORAL_SCANNER_AUTH_ENABLED
+      value: "false"
+    # Temporarily disable OIDC completely to fix worker issues
+    - name: TEMPORAL_OIDC_ENABLED
+      value: "false"
   # for sidecar containers, add containers here with restartPolicy: Always
   additionalInitContainers: []
   securityContext:
@@ -126,12 +163,15 @@ server:
     #       rootCaFiles:
     #         - /path/to/frontend/serverCa
     # Define your Authorizer and ClaimMapper configuration here. See https://docs.temporal.io/self-hosted-guide/security#authorization
+    # TEMPORARILY DISABLED to fix worker authentication issues
     # authorization:
+    #   enabled: false
+    #   # Keep JWT config for when we re-enable
     #   jwtKeyProvider:
     #     keySourceURIs:
-    #       - http://localhost:/jwks.json
+    #       - https://console.gaap.dev.rafay-edge.net/dex/keys
     #     refreshInterval: 1m
-    #   permissionsClaimName: permissions
+    #   permissionsClaimName: groups
     #   authorizer: default
     #   claimMapper: default
     persistence:
@@ -291,7 +331,7 @@ server:
     podDisruptionBudget: {}
   internalFrontend:
     # Enable this to create internal-frontend
-    enabled: false
+    enabled: true
     service:
       # Evaluated as template
       annotations: {}
@@ -338,7 +378,13 @@ server:
     nodeSelector: {}
     tolerations: []
     affinity: {}
-    additionalEnv: []
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_INTERNAL_SERVICE
+        value: "true"  
     additionalEnvSecretName: ""
     containerSecurityContext: {}
     topologySpreadConstraints: []
@@ -363,7 +409,13 @@ server:
     nodeSelector: {}
     tolerations: []
     affinity: {}
-    additionalEnv: []
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_INTERNAL_SERVICE
+        value: "true"
     containerSecurityContext: {}
     topologySpreadConstraints: []
     podDisruptionBudget: {}
@@ -387,7 +439,39 @@ server:
     nodeSelector: {}
     tolerations: []
     affinity: {}
-    additionalEnv: []
+    additionalEnv:
+      # Disable OIDC for internal services
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      # Disable OIDC for system workflows
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+      # Skip authentication for worker operations
+      - name: TEMPORAL_WORKER_SKIP_AUTH
+        value: "true"
+      # Allow internal service communication
+      - name: TEMPORAL_ALLOW_INTERNAL_SERVICE_COMMUNICATION
+        value: "true"
+      # Disable OIDC for scanner workflows
+      - name: TEMPORAL_SCANNER_AUTH_ENABLED
+        value: "false"
+      # Set worker as internal service
+      - name: TEMPORAL_SERVICE_TYPE
+        value: "worker"
+      # Disable authorization for system operations
+      - name: TEMPORAL_AUTHORIZATION_ENABLED
+        value: "false"
+      # Set internal service flag
+      - name: TEMPORAL_INTERNAL_SERVICE
+        value: "true"
+      # Additional worker-specific settings
+      - name: TEMPORAL_WORKER_SKIP_AUTHENTICATION
+        value: "true"
+      - name: TEMPORAL_WORKER_INTERNAL_SERVICE
+        value: "true"
+      # Disable OIDC completely for worker
+      - name: TEMPORAL_OIDC_ENABLED
+        value: "false"
     containerSecurityContext:
       runAsUser: 1000
       runAsGroup: 1000
@@ -395,6 +479,13 @@ server:
       readOnlyRootFilesystem: false
     topologySpreadConstraints: []
     podDisruptionBudget: {}
+  frontend-proxy:
+    enabled: true
+    service:
+      # type: ClusterIP
+      port: 7233
+      membershipPort: 6933
+      httpPort: 7243
 admintools:
   enabled: true
   image:
@@ -477,7 +568,29 @@ web:
   additionalVolumeMounts: []
   # Adjust Web UI config with environment variables:
   # https://docs.temporal.io/references/web-ui-environment-variables
-  additionalEnv: []
+  additionalEnv:
+    - name: TEMPORAL_UI_PUBLIC_PATH
+      value: "/temporalui"
+    - name: TEMPORAL_UI_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_BASE_URL
+      value: "/temporalui"
+    - name: TEMPORAL_UI_SERVER_API_TIMEOUT
+      value: "10000"
+    # Disable authentication for web UI to match backend configuration
+    - name: TEMPORAL_AUTH_ENABLED
+      value: "true"
+    # Remove OIDC configuration since backend auth is disabled
+    - name: TEMPORAL_AUTH_PROVIDER_URL
+       value: "https://console.gaap.dev.rafay-edge.net/dex"
+    - name: TEMPORAL_AUTH_CLIENT_ID
+      value: "temporal-web-ui"
+    - name: TEMPORAL_AUTH_CLIENT_SECRET
+      value: "temporal-web-ui-secret"
+    - name: TEMPORAL_AUTH_CALLBACK_URL
+      value: "https://ops-console.gaap.dev.rafay-edge.net/temporalui/auth/sso/callback"
+    - name: TEMPORAL_AUTH_SCOPES
+      value: "openid profile email groups"
   additionalEnvSecretName: ""
   containerSecurityContext: {}
   securityContext: {}

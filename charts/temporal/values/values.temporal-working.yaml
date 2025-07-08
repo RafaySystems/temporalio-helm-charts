@@ -1,0 +1,91 @@
+# Working Temporal Configuration - OIDC Disabled
+# Use this to get Temporal running, then add OIDC back properly
+
+server:
+  config:
+    # OIDC Authorization is temporarily disabled to get Temporal running
+    # authorization:
+    #   jwtKeyProvider:
+    #     keySourceURIs:
+    #       - "https://console.gaap.dev.rafay-edge.net/dex/keys"
+    #     refreshInterval: 1m
+    #   permissionsClaimName: groups
+    #   authorizer: default
+    #   claimMapper: default
+
+  # Disable ingress since we're using Istio Virtual Service
+  frontend:
+    service:
+      type: ClusterIP
+      port: 7233
+      httpPort: 7243
+    ingress:
+      enabled: false  # Disable ingress, use Istio instead
+
+web:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: temporalio/ui
+    tag: 2.38.3
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: false  # Disable ingress, use Istio instead
+  
+  # Web UI configuration for path-based routing
+  additionalEnv:
+    # Configure Web UI to work with path-based routing
+    - name: TEMPORAL_UI_PUBLIC_PATH
+      value: "/temporal"
+    - name: TEMPORAL_UI_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_TIMEOUT
+      value: "10000"
+    # Authentication is disabled for now
+    # - name: TEMPORAL_AUTH_ENABLED
+    #   value: "true"
+    # - name: TEMPORAL_AUTH_PROVIDER_URL
+    #   value: "https://console.gaap.dev.rafay-edge.net/dex"
+    # - name: TEMPORAL_AUTH_CLIENT_ID
+    #   value: "temporal-web-ui"
+    # - name: TEMPORAL_AUTH_CALLBACK_URL
+    #   value: "https://ops-console.gaap.dev.rafay-edge.net/temporal/auth/sso/callback"
+
+# Instructions for adding OIDC back:
+# 
+# 1. First, get Temporal running with this configuration
+# 2. Then, create a proper OIDC configuration that handles internal services
+# 3. The key is to configure OIDC only for external clients, not internal services
+#
+# Example of proper OIDC configuration:
+# server:
+#   config:
+#     authorization:
+#       jwtKeyProvider:
+#         keySourceURIs:
+#           - "https://console.gaap.dev.rafay-edge.net/dex/keys"
+#         refreshInterval: 1m
+#       permissionsClaimName: groups
+#       authorizer: default
+#       claimMapper: default
+#       # Important: Configure to only require auth for external clients
+#       # Internal services should be able to communicate without OIDC tokens
+#       requireAuthForInternalServices: false
+#
+# 4. For workers, you'll need to configure them with proper OIDC tokens
+#    or use service accounts that are exempt from OIDC requirements
+#
+# 5. Test the configuration step by step:
+#    - Start with no OIDC (this config)
+#    - Add OIDC for frontend only
+#    - Add OIDC for workers
+#    - Configure internal service communication
+
+# Note: This configuration allows unauthenticated access to Temporal
+# Only use this for development/testing or in secure environments
+# For production, you'll want to add OIDC back with proper configuration 

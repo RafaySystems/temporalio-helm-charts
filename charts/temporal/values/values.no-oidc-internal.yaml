@@ -1,0 +1,107 @@
+# Temporal Configuration - Disable OIDC for Internal Services Only
+# This configuration completely disables OIDC authentication for internal services
+# while maintaining OIDC for external clients
+
+server:
+  additionalEnv:
+    # OIDC Configuration for external clients only
+    - name: TEMPORAL_OIDC_ISSUER
+      value: "https://console.gaap.dev.rafay-edge.net/dex"
+    - name: TEMPORAL_OIDC_AUDIENCE
+      value: "temporal-server"
+    - name: TEMPORAL_OIDC_CLIENT_ID
+      value: "temporal-server"
+    # COMPLETELY DISABLE OIDC for internal services
+    - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+      value: "false"
+    - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+      value: "false"
+    - name: TEMPORAL_ALLOW_INTERNAL_SERVICE_COMMUNICATION
+      value: "true"
+    - name: TEMPORAL_AUTHORIZATION_ENABLED
+      value: "false"
+    - name: TEMPORAL_INTERNAL_SERVICE
+      value: "true"
+    - name: TEMPORAL_SCANNER_AUTH_ENABLED
+      value: "false"
+    # Disable OIDC globally for now to get worker working
+    - name: TEMPORAL_OIDC_ENABLED
+      value: "false"
+
+  config:
+    # Disable authorization completely for now
+    # authorization:
+    #   enabled: false
+    #   # Keep the JWT config for when we re-enable
+    #   jwtKeyProvider:
+    #     keySourceURIs:
+    #       - https://console.gaap.dev.rafay-edge.net/dex/keys
+    #     refreshInterval: 1m
+    #   permissionsClaimName: groups
+    #   authorizer: default
+    #   claimMapper: default
+
+  # Worker service configuration
+  worker:
+    additionalEnv:
+      # Disable all authentication for worker
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_WORKER_SKIP_AUTH
+        value: "true"
+      - name: TEMPORAL_ALLOW_INTERNAL_SERVICE_COMMUNICATION
+        value: "true"
+      - name: TEMPORAL_SCANNER_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SERVICE_TYPE
+        value: "worker"
+      - name: TEMPORAL_AUTHORIZATION_ENABLED
+        value: "false"
+      - name: TEMPORAL_INTERNAL_SERVICE
+        value: "true"
+      - name: TEMPORAL_WORKER_SKIP_AUTHENTICATION
+        value: "true"
+      - name: TEMPORAL_WORKER_INTERNAL_SERVICE
+        value: "true"
+      # Disable OIDC completely for worker
+      - name: TEMPORAL_OIDC_ENABLED
+        value: "false"
+
+  # History service configuration
+  history:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_INTERNAL_SERVICE
+        value: "true"
+      - name: TEMPORAL_AUTHORIZATION_ENABLED
+        value: "false"
+      - name: TEMPORAL_OIDC_ENABLED
+        value: "false"
+
+  # Matching service configuration
+  matching:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_INTERNAL_SERVICE
+        value: "true"
+      - name: TEMPORAL_AUTHORIZATION_ENABLED
+        value: "false"
+      - name: TEMPORAL_OIDC_ENABLED
+        value: "false"
+
+# Service account configuration
+serviceAccount:
+  create: true
+  name: temporal-internal-sa
+  extraAnnotations:
+    temporal.io/internal-service: "true"
+    temporal.io/skip-auth: "true"
+    temporal.io/system-workflow: "true" 

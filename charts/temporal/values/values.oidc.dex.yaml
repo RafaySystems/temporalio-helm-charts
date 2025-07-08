@@ -1,0 +1,101 @@
+# Dex OIDC Configuration for Temporal Server
+# Replace the placeholder values with your actual Dex configuration
+
+server:
+  config:
+    authorization:
+      jwtKeyProvider:
+        # Dex JWKS endpoint - replace with your Dex server URL
+        keySourceURIs:
+          - "https://your-dex-server/.well-known/jwks.json"
+        refreshInterval: 1m
+      
+      # Dex typically uses 'groups' or custom claim names for permissions
+      permissionsClaimName: groups
+      authorizer: default
+      claimMapper: default
+
+  # Dex-specific environment variables
+  additionalEnv:
+    - name: TEMPORAL_OIDC_ISSUER
+      value: "https://your-dex-server"
+    - name: TEMPORAL_OIDC_AUDIENCE
+      value: "temporal-client"
+    - name: TEMPORAL_OIDC_CLIENT_ID
+      value: "your-dex-client-id"
+
+# Example: Mount Dex certificates if using custom domain
+# server:
+#   additionalVolumes:
+#     - name: dex-certs
+#       secret:
+#         secretName: dex-certificates
+#   additionalVolumeMounts:
+#     - name: dex-certs
+#       mountPath: /etc/temporal/dex/certs
+#       readOnly: true
+
+# Example: Worker configuration with Dex tokens
+# server:
+#   worker:
+#     additionalEnv:
+#       - name: TEMPORAL_WORKER_DEX_TOKEN
+#         valueFrom:
+#           secretKeyRef:
+#             name: worker-dex-secret
+#             key: access_token
+#       - name: TEMPORAL_WORKER_DEX_REFRESH_TOKEN
+#         valueFrom:
+#           secretKeyRef:
+#             name: worker-dex-secret
+#             key: refresh_token
+
+# Example: Dex Admin API integration
+# server:
+#   additionalEnv:
+#     - name: DEX_URL
+#       value: "https://your-dex-server"
+#     - name: DEX_CLIENT_ID
+#       value: "admin-client"
+#     - name: DEX_CLIENT_SECRET
+#       valueFrom:
+#         secretKeyRef:
+#           name: dex-admin-secret
+#           key: client_secret
+
+# Example: Dex with Kubernetes service account integration
+# server:
+#   serviceAccount:
+#     create: true
+#     name: temporal-dex-sa
+#     extraAnnotations:
+#       # For Dex with Kubernetes connector
+#       dex.coreos.com/automount-service-account-token: "true"
+#       dex.coreos.com/oauth2-redirecturi: "https://your-dex-server/callback"
+
+# Example: Dex configuration for different environments
+# server:
+#   config:
+#     namespaces:
+#       create: true
+#       namespace:
+#         - name: default
+#           retention: 3d
+#           # Dex configuration for default namespace
+#           authorization:
+#             jwtKeyProvider:
+#               keySourceURIs:
+#                 - "https://dex-dev/.well-known/jwks.json"
+#             permissionsClaimName: groups
+#             authorizer: default
+#             claimMapper: default
+#         - name: production
+#           retention: 7d
+#           # Dex configuration for production namespace
+#           authorization:
+#             jwtKeyProvider:
+#               keySourceURIs:
+#                 - "https://dex-prod/.well-known/jwks.json"
+#             permissionsClaimName: groups
+#             authorizer: default
+#             claimMapper: default 

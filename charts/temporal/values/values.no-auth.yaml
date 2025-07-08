@@ -1,0 +1,48 @@
+# Temporal Configuration - No Authentication
+# This configuration completely removes all authentication to get Temporal working
+
+server:
+  # Remove all OIDC environment variables
+  additionalEnv: []
+
+  config:
+    # No authorization configuration at all
+    # authorization: # Completely removed
+
+  # Worker service configuration - no auth
+  worker:
+    additionalEnv: []
+
+  # History service configuration - no auth
+  history:
+    additionalEnv: []
+
+  # Matching service configuration - no auth
+  matching:
+    additionalEnv: []
+
+  # Frontend service configuration - no auth
+  frontend:
+    additionalEnv: []
+
+# Service account configuration
+serviceAccount:
+  create: true
+  name: temporal-internal-sa
+  extraAnnotations: {}
+
+# Web UI configuration - no auth
+web:
+  additionalEnv:
+    # Configure Web UI to work with path-based routing
+    - name: TEMPORAL_UI_PUBLIC_PATH
+      value: "/temporal"
+    - name: TEMPORAL_UI_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_TIMEOUT
+      value: "10000"
+    # No authentication
+    # - name: TEMPORAL_AUTH_ENABLED
+    #   value: "false" 

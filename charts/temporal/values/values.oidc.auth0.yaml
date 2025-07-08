@@ -1,0 +1,64 @@
+# Auth0 OIDC Configuration for Temporal Server
+# Replace the placeholder values with your actual Auth0 configuration
+
+server:
+  config:
+    authorization:
+      jwtKeyProvider:
+        # Auth0 JWKS endpoint - replace with your Auth0 domain
+        keySourceURIs:
+          - "https://your-domain.auth0.com/.well-known/jwks.json"
+        refreshInterval: 1m
+      
+      # Auth0 typically uses 'permissions' as the claim name
+      permissionsClaimName: permissions
+      authorizer: default
+      claimMapper: default
+
+  # Auth0-specific environment variables
+  additionalEnv:
+    - name: TEMPORAL_OIDC_ISSUER
+      value: "https://your-domain.auth0.com/"
+    - name: TEMPORAL_OIDC_AUDIENCE
+      value: "https://your-temporal-api.com"
+    - name: TEMPORAL_OIDC_CLIENT_ID
+      value: "your-auth0-client-id"
+
+# Example: Mount Auth0 certificates if using custom domain
+# server:
+#   additionalVolumes:
+#     - name: auth0-certs
+#       secret:
+#         secretName: auth0-certificates
+#   additionalVolumeMounts:
+#     - name: auth0-certs
+#       mountPath: /etc/temporal/auth0/certs
+#       readOnly: true
+
+# Example: Worker configuration with Auth0 tokens
+# server:
+#   worker:
+#     additionalEnv:
+#       - name: TEMPORAL_WORKER_AUTH0_TOKEN
+#         valueFrom:
+#           secretKeyRef:
+#             name: worker-auth0-secret
+#             key: access_token
+#       - name: TEMPORAL_WORKER_AUTH0_REFRESH_TOKEN
+#         valueFrom:
+#           secretKeyRef:
+#             name: worker-auth0-secret
+#             key: refresh_token
+
+# Example: Auth0 Management API integration
+# server:
+#   additionalEnv:
+#     - name: AUTH0_DOMAIN
+#       value: "your-domain.auth0.com"
+#     - name: AUTH0_CLIENT_ID
+#       value: "your-management-api-client-id"
+#     - name: AUTH0_CLIENT_SECRET
+#       valueFrom:
+#         secretKeyRef:
+#           name: auth0-management-secret
+#           key: client_secret" 

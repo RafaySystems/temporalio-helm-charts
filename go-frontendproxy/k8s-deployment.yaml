@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-frontend-proxy
+  namespace: rafay-core
+  labels:
+    app: temporal-frontend-proxy
+    component: proxy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: temporal-frontend-proxy
+  template:
+    metadata:
+      labels:
+        app: temporal-frontend-proxy
+        component: proxy
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8081"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: temporal-frontend-proxy-sa
+      containers:
+      - name: temporal-frontend-proxy
+        image: registry.dev.rafay-edge.net/rafay/temporal-frontend-proxy:latest
+        ports:
+        - containerPort: 8081
+          name: http
+        env:
+        - name: PORT
+          value: "8081"
+        - name: TEMPORAL_FRONTEND_URL
+          value: "http://temporalio-frontend.rafay-core.svc.cluster.local:7233"
+        - name: OIDC_ISSUER
+          value: "https://console.gaap.dev.rafay-edge.net/dex"
+        - name: OIDC_CLIENT_ID
+          value: "temporal-server"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: ENABLE_CORS
+          value: "true"
+        - name: REQUEST_TIMEOUT
+          value: "30s"
+        - name: TOKEN_VALIDATION_TIMEOUT
+          value: "5s"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          runAsGroup: 1001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-frontend-proxy
+  namespace: rafay-core
+  labels:
+    app: temporal-frontend-proxy
+    component: proxy
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8081
+    targetPort: 8081
+    protocol: TCP
+    name: http
+  selector:
+    app: temporal-frontend-proxy
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: temporal-frontend-proxy-sa
+  namespace: rafay-core
+  labels:
+    app: temporal-frontend-proxy
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: temporal-frontend-proxy-role
+  namespace: rafay-core
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: temporal-frontend-proxy-rolebinding
+  namespace: rafay-core
+subjects:
+- kind: ServiceAccount
+  name: temporal-frontend-proxy-sa
+  namespace: rafay-core
+roleRef:
+  kind: Role
+  name: temporal-frontend-proxy-role
+  apiGroup: rbac.authorization.k8s.io 

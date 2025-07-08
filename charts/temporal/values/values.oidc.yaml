@@ -1,0 +1,145 @@
+# OIDC Configuration for Temporal Server
+# This file provides examples for configuring OpenID Connect authentication
+# for workers connecting to the Temporal server.
+
+server:
+  config:
+    # OIDC Authorization Configuration
+    # See https://docs.temporal.io/self-hosted-guide/security#authorization
+    authorization:
+      # JWT Key Provider Configuration
+      jwtKeyProvider:
+        # List of JWKS (JSON Web Key Set) endpoints from your OIDC provider
+        # Common OIDC providers:
+        # - Auth0: https://your-domain.auth0.com/.well-known/jwks.json
+        # - Keycloak: https://your-keycloak-server/auth/realms/your-realm/protocol/openid-connect/certs
+        # - Okta: https://your-domain.okta.com/oauth2/v1/keys
+        # - Azure AD: https://login.microsoftonline.com/your-tenant-id/discovery/v2.0/keys
+        # - Google: https://www.googleapis.com/oauth2/v1/certs
+        keySourceURIs:
+          - "https://your-oidc-provider/.well-known/jwks.json"
+          # You can add multiple providers for redundancy
+          # - "https://backup-oidc-provider/.well-known/jwks.json"
+        
+        # How often to refresh the JWKS from the provider
+        # Default: 1m (1 minute)
+        refreshInterval: 1m
+        
+        # Optional: HTTP client configuration for JWKS fetching
+        # httpClient:
+        #   timeout: 10s
+        #   maxIdleConns: 10
+        #   maxIdleConnsPerHost: 2
+        #   idleConnTimeout: 90s
+        #   tlsHandshakeTimeout: 10s
+        #   expectContinueTimeout: 1s
+      
+      # Name of the claim in the JWT that contains permissions
+      # This should match the claim name in your OIDC provider's JWT tokens
+      permissionsClaimName: permissions
+      
+      # Authorization components
+      authorizer: default
+      claimMapper: default
+      
+      # Optional: Custom authorization configuration
+      # You can implement custom authorizers and claim mappers
+      # authorizer: custom
+      # claimMapper: custom
+      # customAuthorizer:
+      #   plugin: "your-custom-authorizer-plugin"
+      # customClaimMapper:
+      #   plugin: "your-custom-claim-mapper-plugin"
+
+  # Additional environment variables for OIDC configuration
+  additionalEnv:
+    # Optional: Set custom OIDC configuration via environment variables
+    # - name: TEMPORAL_OIDC_ISSUER
+    #   value: "https://your-oidc-provider"
+    # - name: TEMPORAL_OIDC_AUDIENCE
+    #   value: "your-temporal-audience"
+    # - name: TEMPORAL_OIDC_CLIENT_ID
+    #   value: "your-client-id"
+
+# Example: Configure TLS for secure OIDC communication
+# server:
+#   config:
+#     tls:
+#       frontend:
+#         server:
+#           certFile: /path/to/frontend/cert/file
+#           keyFile: /path/to/frontend/key/file
+#           requireClientAuth: true
+#           clientCaFiles:
+#             - /path/to/oidc-provider-ca
+#         client:
+#           serverName: dnsSanInFrontendCertificate
+#           rootCaFiles:
+#             - /path/to/frontend/serverCa
+
+# Example: Mount OIDC certificates and configuration files
+# server:
+#   additionalVolumes:
+#     - name: oidc-certs
+#       secret:
+#         secretName: oidc-certificates
+#     - name: oidc-config
+#       configMap:
+#         name: oidc-configuration
+#   additionalVolumeMounts:
+#     - name: oidc-certs
+#       mountPath: /etc/temporal/oidc/certs
+#       readOnly: true
+#     - name: oidc-config
+#       mountPath: /etc/temporal/oidc/config
+#       readOnly: true
+
+# Example: Worker-specific OIDC configuration
+# server:
+#   worker:
+#     additionalEnv:
+#       - name: TEMPORAL_WORKER_OIDC_TOKEN
+#         valueFrom:
+#           secretKeyRef:
+#             name: worker-oidc-secret
+#             key: token
+#       - name: TEMPORAL_WORKER_OIDC_REFRESH_TOKEN
+#         valueFrom:
+#           secretKeyRef:
+#             name: worker-oidc-secret
+#             key: refresh-token
+
+# Example: Namespace-specific OIDC configuration
+# server:
+#   config:
+#     namespaces:
+#       create: true
+#       namespace:
+#         - name: default
+#           retention: 3d
+#           # Optional: Namespace-specific OIDC configuration
+#           # authorization:
+#           #   jwtKeyProvider:
+#           #     keySourceURIs:
+#           #       - "https://namespace-specific-oidc-provider/.well-known/jwks.json"
+#           #   permissionsClaimName: namespace_permissions
+#           #   authorizer: default
+#           #   claimMapper: default
+
+# Example: Prometheus metrics for OIDC authentication
+# server:
+#   metrics:
+#     tags:
+#       oidc_enabled: "true"
+#       oidc_provider: "your-provider-name"
+
+# Example: Service account for OIDC token management
+# serviceAccount:
+#   create: true
+#   name: temporal-oidc-sa
+#   extraAnnotations:
+#     eks.amazonaws.com/role-arn: "arn:aws:iam::your-account:role/temporal-oidc-role"
+#     # For Azure AD
+#     azure.workload.identity/client-id: "your-client-id"
+#     # For Google Cloud
+#     iam.gke.io/gcp-service-account: "temporal-oidc@your-project.iam.gserviceaccount.com" 

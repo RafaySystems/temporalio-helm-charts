@@ -1,0 +1,652 @@
+# Complete Temporal + Dex Production Setup
+# This file contains everything needed for a production Temporal deployment with Dex OIDC
+
+# =============================================================================
+# DEX CONFIGURATION
+# =============================================================================
+
+---
+# Dex Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dex-system
+  labels:
+    name: dex-system
+
+---
+# Dex ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dex-config
+  namespace: dex-system
+data:
+  config.yaml: |
+    issuer: https://console.gaap.dev.rafay-edge.net/dex
+    
+    # Storage configuration - using Kubernetes for production
+    storage:
+      type: kubernetes
+      config:
+        inCluster: true
+    
+    # Web configuration
+    web:
+      http: 0.0.0.0:5556
+      https: 0.0.0.0:5557
+      tlsCert: /etc/dex/tls/tls.crt
+      tlsKey: /etc/dex/tls/tls.key
+    
+    # OAuth2 configuration
+    oauth2:
+      skipApprovalScreen: true
+      alwaysShowLoginScreen: false
+    
+    # Static clients for Temporal
+    staticClients:
+    - id: temporal-client
+      secret: temporal-client-secret
+      name: 'Temporal Server'
+      redirectURIs:
+      - 'https://ops-console.gaap.dev.rafay-edge.net/temporal/auth/sso/callback'
+      - 'http://localhost:8080/callback'
+      trustedPeers:
+      - temporal-worker
+      - temporal-web-ui
+    
+    - id: temporal-worker
+      secret: temporal-worker-secret
+      name: 'Temporal Worker'
+      redirectURIs:
+      - 'http://localhost:8080/callback'
+      trustedPeers:
+      - temporal-client
+      - temporal-web-ui
+    
+    - id: temporal-web-ui
+      secret: temporal-web-ui-secret
+      name: 'Temporal Web UI'
+      redirectURIs:
+      - 'https://ops-console.gaap.dev.rafay-edge.net/temporal/auth/sso/callback'
+      - 'http://localhost:8080/callback'
+      trustedPeers:
+      - temporal-client
+      - temporal-worker
+    
+    # Connectors - using Kubernetes service accounts
+    connectors:
+    - type: kubernetes
+      id: kubernetes
+      name: Kubernetes
+      config:
+        inCluster: true
+        # Optional: restrict to specific namespaces
+        # namespace: temporal-system
+    
+    # Static passwords for testing (remove in production)
+    staticPasswords:
+    - email: "admin@rafay-edge.net"
+      hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"  # password: admin123
+      username: "admin"
+      userID: "08a8684b-db88-4c73-90a9-3cd1661f5466"
+    
+    # Enable refresh tokens
+    expiry:
+      signingKeys: "6h"
+      idTokens: "24h"
+      refreshTokens:
+        reuseInterval: "3s"
+        absoluteLifetime: "720h"
+        validIfNotUsedFor: "2160h"
+
+---
+# Dex Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dex
+  namespace: dex-system
+  labels:
+    app: dex
+
+---
+# Dex RBAC - Cluster Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dex
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+
+---
+# Dex RBAC - Cluster Role Binding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dex
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dex
+subjects:
+- kind: ServiceAccount
+  name: dex
+  namespace: dex-system
+
+---
+# Dex Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dex
+  namespace: dex-system
+  labels:
+    app: dex
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dex
+  template:
+    metadata:
+      labels:
+        app: dex
+    spec:
+      serviceAccountName: dex
+      containers:
+      - name: dex
+        image: dexidp/dex:v2.38.1
+        ports:
+        - name: http
+          containerPort: 5556
+          protocol: TCP
+        - name: https
+          containerPort: 5557
+          protocol: TCP
+        args:
+        - serve
+        - /etc/dex/config.yaml
+        volumeMounts:
+        - name: dex-config
+          mountPath: /etc/dex
+        - name: dex-tls
+          mountPath: /etc/dex/tls
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 5556
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 5556
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: dex-config
+        configMap:
+          name: dex-config
+      - name: dex-tls
+        secret:
+          secretName: dex-tls
+
+---
+# Dex Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: dex
+  namespace: dex-system
+  labels:
+    app: dex
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 5556
+    targetPort: 5556
+    protocol: TCP
+  - name: https
+    port: 5557
+    targetPort: 5557
+    protocol: TCP
+  selector:
+    app: dex
+
+---
+# Dex Ingress (if using ingress controller)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dex-ingress
+  namespace: dex-system
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - console.gaap.dev.rafay-edge.net
+    secretName: dex-tls
+  rules:
+  - host: console.gaap.dev.rafay-edge.net
+    http:
+      paths:
+      - path: /dex
+        pathType: Prefix
+        backend:
+          service:
+            name: dex
+            port:
+              number: 5556
+
+# =============================================================================
+# TEMPORAL CONFIGURATION
+# =============================================================================
+
+---
+# Temporal Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: temporal-system
+  labels:
+    name: temporal-system
+
+---
+# Temporal Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: temporal-sa
+  namespace: temporal-system
+  labels:
+    app: temporal
+  annotations:
+    dex.coreos.com/automount-service-account-token: "true"
+    dex.coreos.com/oauth2-redirecturi: "https://console.gaap.dev.rafay-edge.net/dex/callback"
+
+---
+# Temporal RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: temporal-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints", "persistentvolumeclaims", "events", "configmaps", "secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses", "networkpolicies"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+# Temporal RBAC Binding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: temporal-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: temporal-role
+subjects:
+- kind: ServiceAccount
+  name: temporal-sa
+  namespace: temporal-system
+
+---
+# Temporal OIDC Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: temporal-oidc-secret
+  namespace: temporal-system
+type: Opaque
+data:
+  # These should be base64 encoded
+  client-secret: dGVtcG9yYWwtY2xpZW50LXNlY3JldA==  # temporal-client-secret
+  worker-secret: dGVtcG9yYWwtd29ya2VyLXNlY3JldA==  # temporal-worker-secret
+  web-ui-secret: dGVtcG9yYWwtd2ViLXVpLXNlY3JldA==  # temporal-web-ui-secret
+
+# =============================================================================
+# TEMPORAL HELM VALUES
+# =============================================================================
+
+# Temporal Server Configuration
+server:
+  config:
+    # OIDC Authorization Configuration
+    authorization:
+      jwtKeyProvider:
+        keySourceURIs:
+          - "https://console.gaap.dev.rafay-edge.net/dex/keys"
+        refreshInterval: 1m
+      
+      permissionsClaimName: groups
+      authorizer: default
+      claimMapper: default
+      
+      # System authorization for internal services
+      systemAuthorizer:
+        systemWorkflows:
+          - "temporal-sys-tq-scanner-workflow"
+          - "temporal-sys-history-scanner-workflow"
+          - "temporal-sys-workflow-mapper-workflow"
+          - "temporal-sys-archival-workflow"
+        internalServices:
+          - "temporal-frontend"
+          - "temporal-history"
+          - "temporal-matching"
+          - "temporal-worker"
+        externalClients:
+          requireAuth: true
+          allowedAudiences:
+            - "temporal-client"
+            - "temporal-worker"
+            - "temporal-web-ui"
+
+  # Environment variables
+  additionalEnv:
+    - name: TEMPORAL_OIDC_ISSUER
+      value: "https://console.gaap.dev.rafay-edge.net/dex"
+    - name: TEMPORAL_OIDC_AUDIENCE
+      value: "temporal-client"
+    - name: TEMPORAL_OIDC_CLIENT_ID
+      value: "temporal-client"
+    - name: TEMPORAL_OIDC_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: temporal-oidc-secret
+          key: client-secret
+    
+    # Internal service configuration
+    - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+      value: "false"
+    - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+      value: "false"
+    - name: TEMPORAL_ALLOW_INTERNAL_SERVICE_COMMUNICATION
+      value: "true"
+
+  # Service configurations
+  frontend:
+    service:
+      type: ClusterIP
+      port: 7233
+      httpPort: 7243
+    ingress:
+      enabled: false
+    additionalEnv:
+      - name: TEMPORAL_FRONTEND_REQUIRE_AUTH
+        value: "true"
+      - name: TEMPORAL_FRONTEND_ALLOW_INTERNAL_SERVICES
+        value: "true"
+
+  history:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+
+  matching:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+
+  worker:
+    additionalEnv:
+      - name: TEMPORAL_INTERNAL_SERVICE_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_SYSTEM_WORKFLOW_AUTH_ENABLED
+        value: "false"
+      - name: TEMPORAL_WORKER_SKIP_AUTH
+        value: "true"
+
+# Web UI Configuration
+web:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: temporalio/ui
+    tag: 2.38.3
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: false
+  
+  additionalEnv:
+    - name: TEMPORAL_UI_PUBLIC_PATH
+      value: "/temporal"
+    - name: TEMPORAL_UI_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_BASE_URL
+      value: "/temporal"
+    - name: TEMPORAL_UI_SERVER_API_TIMEOUT
+      value: "10000"
+    
+    # OIDC authentication
+    - name: TEMPORAL_AUTH_ENABLED
+      value: "true"
+    - name: TEMPORAL_AUTH_PROVIDER_URL
+      value: "https://console.gaap.dev.rafay-edge.net/dex"
+    - name: TEMPORAL_AUTH_CLIENT_ID
+      value: "temporal-web-ui"
+    - name: TEMPORAL_AUTH_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: temporal-oidc-secret
+          key: web-ui-secret
+    - name: TEMPORAL_AUTH_CALLBACK_URL
+      value: "https://ops-console.gaap.dev.rafay-edge.net/temporal/auth/sso/callback"
+    - name: TEMPORAL_AUTH_SCOPES
+      value: "openid profile email groups"
+
+# Service Account
+serviceAccount:
+  create: true
+  name: temporal-sa
+  extraAnnotations:
+    temporal.io/internal-service: "true"
+    temporal.io/skip-auth: "true"
+
+# Metrics and Monitoring
+server:
+  metrics:
+    tags:
+      oidc_enabled: "true"
+      oidc_provider: "rafay-dex"
+      environment: "production"
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+      additionalLabels:
+        monitoring: temporal-oidc
+
+# Security
+server:
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+
+# =============================================================================
+# EXTERNAL WORKER EXAMPLE
+# =============================================================================
+
+---
+# Example: External Worker with OIDC
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-worker-oidc
+  namespace: temporal-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal-worker-oidc
+  template:
+    metadata:
+      labels:
+        app: temporal-worker-oidc
+    spec:
+      serviceAccountName: temporal-worker-sa
+      containers:
+      - name: worker
+        image: your-worker-image:latest
+        env:
+        - name: TEMPORAL_HOST_PORT
+          value: "temporal-frontend.temporal-system.svc.cluster.local:7233"
+        - name: TEMPORAL_NAMESPACE
+          value: "default"
+        - name: TEMPORAL_TASK_QUEUE
+          value: "your-task-queue"
+        - name: TEMPORAL_OIDC_ISSUER
+          value: "https://console.gaap.dev.rafay-edge.net/dex"
+        - name: TEMPORAL_OIDC_AUDIENCE
+          value: "temporal-worker"
+        - name: TEMPORAL_OIDC_CLIENT_ID
+          value: "temporal-worker"
+        - name: TEMPORAL_OIDC_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: temporal-oidc-secret
+              key: worker-secret
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+---
+# Worker Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: temporal-worker-sa
+  namespace: temporal-system
+  annotations:
+    dex.coreos.com/automount-service-account-token: "true"
+    dex.coreos.com/oauth2-redirecturi: "https://console.gaap.dev.rafay-edge.net/dex/callback"
+
+# =============================================================================
+# NETWORK POLICIES
+# =============================================================================
+
+---
+# Network Policy for Temporal
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: temporal-network-policy
+  namespace: temporal-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: temporal
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: dex-system
+    ports:
+    - protocol: TCP
+      port: 5556
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: temporal-system
+    ports:
+    - protocol: TCP
+      port: 7233
+    - protocol: TCP
+      port: 7234
+    - protocol: TCP
+      port: 7235
+    - protocol: TCP
+      port: 7239
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: dex-system
+    ports:
+    - protocol: TCP
+      port: 5556
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+
+# =============================================================================
+# DEPLOYMENT INSTRUCTIONS
+# =============================================================================
+
+# To deploy this complete setup:
+#
+# 1. Apply Dex first:
+#    kubectl apply -f complete-temporal-dex-setup.yaml
+#
+# 2. Wait for Dex to be ready:
+#    kubectl wait --for=condition=ready pod -l app=dex -n dex-system --timeout=300s
+#
+# 3. Deploy Temporal with Helm:
+#    helm install temporal ./charts/temporal -f complete-temporal-dex-setup.yaml -n temporal-system
+#
+# 4. Verify the setup:
+#    kubectl get pods -n dex-system
+#    kubectl get pods -n temporal-system
+#
+# 5. Test OIDC:
+#    curl https://console.gaap.dev.rafay-edge.net/dex/.well-known/openid_configuration
+#    curl https://console.gaap.dev.rafay-edge.net/dex/keys
+#
+# 6. Access Temporal Web UI:
+#    https://ops-console.gaap.dev.rafay-edge.net/temporal
+#
+# Note: Make sure to:
+# - Update the TLS certificates for Dex
+# - Change the default passwords in Dex config
+# - Configure proper RBAC for your environment
+# - Set up monitoring and alerting
+# - Configure backup and disaster recovery 
