@@ -24,7 +24,7 @@ spec:
       serviceAccountName: {{ include "temporal.fullname" $ }}-frontend-proxy-sa
       containers:
       - name: temporal-frontend-proxy
-        image: {{ .Values.frontend-proxy.image.repository }}:{{ .Values.frontend-proxy.image.tag }}
+        image: "{{ .Values.frontend-proxy.image.repository }}:{{ .Values.frontend-proxy.image.tag }}"
         ports:
         - containerPort: 8081
           name: http
